@@ -15,6 +15,7 @@ class Mybike_xml_generator extends Module
         $this->author        = 'Augu su Presta';
         $this->need_instance = 0;
         $this->bootstrap     = true;
+        $this->ps_versions_compliancy = ['min' => '1.7.0', 'max' => _PS_VERSION_];
 
         parent::__construct();
 

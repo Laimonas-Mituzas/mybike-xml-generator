@@ -1,10 +1,6 @@
-{extends file='helper/form/form.tpl'}
-
-{block name="content"}
 <div class="panel">
   <div class="panel-heading"><i class="icon-cogs"></i> MyBike XML Generator</div>
 
-  {* Pranešimai *}
   {foreach from=$confirmations item=conf}
     <div class="alert alert-success">{$conf|escape:'html'}</div>
   {/foreach}
@@ -12,7 +8,6 @@
     <div class="alert alert-danger">{$err|escape:'html'}</div>
   {/foreach}
 
-  {* Konfigūracija *}
   <h4>Konfigūracija</h4>
   <form method="post" action="{$action_url}">
     <div class="form-group">
@@ -27,7 +22,6 @@
     </div>
   </form>
 
-  {* Cron URL'ai *}
   <h4 style="margin-top:24px">Cron URL'ai</h4>
   <div class="form-group">
     <label>Full sync (1&times;/parą):</label>
@@ -46,7 +40,6 @@
     </button>
   </form>
 
-  {* XML failai *}
   <h4 style="margin-top:24px">XML failai</h4>
   <table class="table" style="max-width:900px">
     <thead>
@@ -61,8 +54,6 @@
       </tr>
     </thead>
     <tbody>
-
-      {* Full XML *}
       <tr>
         <td><strong>products_full.xml</strong></td>
         <td>{$last_full.run}</td>
@@ -85,8 +76,6 @@
           </form>
         </td>
       </tr>
-
-      {* Stock XML *}
       <tr>
         <td><strong>products_stock.xml</strong></td>
         <td>{$last_stock.run}</td>
@@ -108,8 +97,6 @@
           </form>
         </td>
       </tr>
-
     </tbody>
   </table>
 </div>
-{/block}
