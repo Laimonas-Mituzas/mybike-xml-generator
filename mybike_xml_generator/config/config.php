@@ -4,7 +4,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 define('MYBIKE_MODULE_DIR', dirname(__DIR__));
-define('MYBIKE_OUTPUT_DIR', MYBIKE_MODULE_DIR . '/output');
+define('MYBIKE_OUTPUT_DIR', MYBIKE_MODULE_DIR . '/xml');
 define('MYBIKE_LOGS_DIR', MYBIKE_MODULE_DIR . '/logs');
 define('MYBIKE_FULL_XML', MYBIKE_OUTPUT_DIR . '/products_full.xml');
 define('MYBIKE_STOCK_XML', MYBIKE_OUTPUT_DIR . '/products_stock.xml');

@@ -1,6 +1,6 @@
-output/products_full.xml
-output/products_full.xml.tmp
-output/products_stock.xml
-output/products_stock.xml.tmp
+xml/products_full.xml
+xml/products_full.xml.tmp
+xml/products_stock.xml
+xml/products_stock.xml.tmp
 logs/*.log
 logs/*.log.old
