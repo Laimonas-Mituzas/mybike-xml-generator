@@ -1,0 +1,42 @@
+<?php
+$psRoot = dirname(__FILE__, 3);
+if (!file_exists($psRoot . '/config/config.inc.php')) {
+    http_response_code(500);
+    exit('PrestaShop root not found');
+}
+require_once $psRoot . '/config/config.inc.php';
+
+require_once dirname(__FILE__) . '/config/config.php';
+require_once dirname(__FILE__) . '/classes/MyBikeLogger.php';
+require_once dirname(__FILE__) . '/classes/MyBikeApiClient.php';
+require_once dirname(__FILE__) . '/classes/MyBikeStockXmlBuilder.php';
+require_once dirname(__FILE__) . '/classes/MyBikeStockSync.php';
+
+$token = isset($_GET['token']) ? $_GET['token'] : '';
+$savedToken = Configuration::get('MYBIKE_CRON_TOKEN');
+
+if (!$savedToken || !hash_equals($savedToken, $token)) {
+    http_response_code(403);
+    exit('Forbidden');
+}
+
+set_time_limit(300);
+
+$apiKey = Configuration::get('MYBIKE_API_KEY');
+$logger = new MyBikeLogger(MYBIKE_STOCK_LOG);
+$api    = new MyBikeApiClient($apiKey);
+$sync   = new MyBikeStockSync($api, $logger);
+
+try {
+    $result = $sync->run();
+    Configuration::updateValue('MYBIKE_LAST_STOCK_RUN',      date('Y-m-d H:i:s'));
+    Configuration::updateValue('MYBIKE_LAST_STOCK_COUNT',    $result['count']);
+    Configuration::updateValue('MYBIKE_LAST_STOCK_DURATION', $result['duration']);
+    Configuration::updateValue('MYBIKE_LAST_STOCK_STATUS',   'ok');
+    echo 'OK: ' . $result['count'] . ' products, ' . $result['duration'] . 's';
+} catch (Exception $e) {
+    $logger->error($e->getMessage());
+    Configuration::updateValue('MYBIKE_LAST_STOCK_STATUS', 'error: ' . $e->getMessage());
+    http_response_code(500);
+    echo 'ERROR: ' . $e->getMessage();
+}
