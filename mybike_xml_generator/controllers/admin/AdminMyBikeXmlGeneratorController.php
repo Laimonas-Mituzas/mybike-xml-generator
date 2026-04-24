@@ -120,7 +120,7 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'action_url'      => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
         ]);
 
-        $this->setTemplate('module:mybike_xml_generator/views/templates/admin/configure.tpl');
+        $this->setTemplate(_PS_MODULE_DIR_ . 'mybike_xml_generator/views/templates/admin/configure.tpl');
     }
 
     private function lastRunData($type)
