@@ -4,6 +4,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 require_once dirname(__FILE__) . '/config/config.php';
+require_once dirname(__FILE__) . '/classes/MyBikeCategoryManager.php';
 
 class Mybike_xml_generator extends Module
 {
@@ -31,6 +32,7 @@ class Mybike_xml_generator extends Module
 
         Configuration::updateValue('MYBIKE_CRON_TOKEN', bin2hex(random_bytes(16)));
         Configuration::updateValue('MYBIKE_API_KEY', '');
+        Configuration::updateValue('MYBIKE_ONLY_IN_STOCK', '0');
 
         foreach ([MYBIKE_OUTPUT_DIR, MYBIKE_LOGS_DIR] as $dir) {
             if (!is_dir($dir)) {
@@ -38,13 +40,15 @@ class Mybike_xml_generator extends Module
             }
         }
 
+        MyBikeCategoryManager::createTable();
+
         return $this->installTab();
     }
 
     public function uninstall()
     {
         $keys = [
-            'MYBIKE_API_KEY', 'MYBIKE_CRON_TOKEN',
+            'MYBIKE_API_KEY', 'MYBIKE_CRON_TOKEN', 'MYBIKE_ONLY_IN_STOCK',
             'MYBIKE_LAST_FULL_RUN', 'MYBIKE_LAST_FULL_COUNT',
             'MYBIKE_LAST_FULL_DURATION', 'MYBIKE_LAST_FULL_STATUS',
             'MYBIKE_LAST_STOCK_RUN', 'MYBIKE_LAST_STOCK_COUNT',
@@ -54,6 +58,7 @@ class Mybike_xml_generator extends Module
             Configuration::deleteByName($key);
         }
 
+        MyBikeCategoryManager::dropTable();
         $this->uninstallTab();
 
         return parent::uninstall();

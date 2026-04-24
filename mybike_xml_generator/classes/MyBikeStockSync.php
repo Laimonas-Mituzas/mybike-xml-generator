@@ -8,12 +8,16 @@ class MyBikeStockSync
     private $api;
     private $logger;
     private $stockBuilder;
+    private $onlyInStock;
+    private $enabledIds;
 
-    public function __construct(MyBikeApiClient $api, MyBikeLogger $logger)
+    public function __construct(MyBikeApiClient $api, MyBikeLogger $logger, array $config = [])
     {
-        $this->api = $api;
-        $this->logger = $logger;
+        $this->api          = $api;
+        $this->logger       = $logger;
         $this->stockBuilder = new MyBikeStockXmlBuilder();
+        $this->onlyInStock  = !empty($config['only_in_stock']);
+        $this->enabledIds   = isset($config['enabled_ids']) ? $config['enabled_ids'] : [];
     }
 
     public function run()
@@ -34,12 +38,23 @@ class MyBikeStockSync
 
     private function fetchAllProducts()
     {
+        $filters = [];
+        if ($this->onlyInStock) {
+            $filters['in_stock'] = 1;
+        }
+
         $products = [];
         $page = 1;
 
         do {
-            $response = $this->api->getProducts($page);
-            $products = array_merge($products, $response['data']);
+            $response = $this->api->getProducts($page, $filters);
+            $batch    = $response['data'];
+            if (!empty($this->enabledIds)) {
+                $batch = array_filter($batch, function ($p) {
+                    return in_array((int)$p['category_id'], $this->enabledIds, true);
+                });
+            }
+            $products = array_merge($products, array_values($batch));
             $meta = $response['meta'];
             $page++;
         } while ($page <= $meta['pages']);

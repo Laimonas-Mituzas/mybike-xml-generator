@@ -28,6 +28,11 @@ class MyBikeApiClient
         return $this->get('/api/v1/products/' . (int)$id . '/images');
     }
 
+    public function getCategories()
+    {
+        return $this->get('/api/v1/products/categories');
+    }
+
     private function get($endpoint, array $params = [])
     {
         $url = MYBIKE_API_BASE_URL . $endpoint;

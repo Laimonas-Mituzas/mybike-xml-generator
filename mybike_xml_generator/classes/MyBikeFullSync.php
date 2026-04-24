@@ -9,13 +9,17 @@ class MyBikeFullSync
     private $logger;
     private $fullBuilder;
     private $stockBuilder;
+    private $onlyInStock;
+    private $enabledIds;
 
-    public function __construct(MyBikeApiClient $api, MyBikeLogger $logger)
+    public function __construct(MyBikeApiClient $api, MyBikeLogger $logger, array $config = [])
     {
-        $this->api = $api;
-        $this->logger = $logger;
-        $this->fullBuilder = new MyBikeFullXmlBuilder();
+        $this->api          = $api;
+        $this->logger       = $logger;
+        $this->fullBuilder  = new MyBikeFullXmlBuilder();
         $this->stockBuilder = new MyBikeStockXmlBuilder();
+        $this->onlyInStock  = !empty($config['only_in_stock']);
+        $this->enabledIds   = isset($config['enabled_ids']) ? $config['enabled_ids'] : [];
     }
 
     public function run()
@@ -42,12 +46,23 @@ class MyBikeFullSync
 
     private function fetchAllProducts()
     {
+        $filters = [];
+        if ($this->onlyInStock) {
+            $filters['in_stock'] = 1;
+        }
+
         $products = [];
         $page = 1;
 
         do {
-            $response = $this->api->getProducts($page);
-            $products = array_merge($products, $response['data']);
+            $response = $this->api->getProducts($page, $filters);
+            $batch    = $response['data'];
+            if (!empty($this->enabledIds)) {
+                $batch = array_filter($batch, function ($p) {
+                    return in_array((int)$p['category_id'], $this->enabledIds, true);
+                });
+            }
+            $products = array_merge($products, array_values($batch));
             $meta = $response['meta'];
             $this->logger->info('Fetched page ' . $page . '/' . $meta['pages'] . ' (' . count($products) . ' products so far)');
             $page++;
@@ -76,11 +91,11 @@ class MyBikeFullSync
                 }
 
                 $existing[(int)$p->id] = [
-                    'description' => (string)$p->description,
+                    'description'  => (string)$p->description,
                     'color'        => (string)$p->color,
                     'size'         => (string)$p->size,
-                    'specs_raw'   => (string)$p->specs,
-                    'featured'    => (string)$p->featured === '1',
+                    'specs_raw'    => (string)$p->specs,
+                    'featured'     => (string)$p->featured === '1',
                     'sub_category' => (string)$p->sub_category,
                     'images'       => $images,
                 ];
@@ -101,11 +116,10 @@ class MyBikeFullSync
             $id = (int)$p['id'];
 
             if (!isset($existing[$id])) {
-                // New product — fetch details and images from API
                 try {
                     $detail = $this->api->getProduct($id);
                     $d = $detail['data'];
-                    $p['description'] = $d['description'] ?? '';
+                    $p['description']  = $d['description'] ?? '';
                     $p['color']        = $d['color'] ?? '';
                     $p['size']         = $d['size'] ?? '';
                     $p['specs']        = $d['specs'] ?? null;
@@ -120,9 +134,8 @@ class MyBikeFullSync
                     $p = array_merge($p, $this->emptyDetails());
                 }
             } else {
-                // Existing product — reuse cached detail data
                 $ex = $existing[$id];
-                $p['description'] = $ex['description'];
+                $p['description']  = $ex['description'];
                 $p['color']        = $ex['color'];
                 $p['size']         = $ex['size'];
                 $p['specs']        = $ex['specs_raw'] ? json_decode($ex['specs_raw'], true) : null;
@@ -142,7 +155,7 @@ class MyBikeFullSync
     private function emptyDetails()
     {
         return [
-            'description' => '',
+            'description'  => '',
             'color'        => '',
             'size'         => '',
             'specs'        => null,
