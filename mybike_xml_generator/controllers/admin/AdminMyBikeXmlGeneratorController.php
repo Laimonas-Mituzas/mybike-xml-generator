@@ -20,10 +20,9 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         parent::__construct();
     }
 
-    public function initContent()
+    // PS kviečia postProcess() prieš initContent() — čia tvarkome form actions
+    public function postProcess()
     {
-        parent::initContent();
-
         if (Tools::isSubmit('save_config')) {
             $this->saveConfig();
         } elseif (Tools::isSubmit('regen_token')) {
@@ -33,8 +32,35 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         } elseif (Tools::isSubmit('run_stock')) {
             $this->runStockSync();
         }
+    }
 
-        $this->renderPage();
+    public function initContent()
+    {
+        parent::initContent();
+
+        $token   = Configuration::get('MYBIKE_CRON_TOKEN');
+        $baseUrl = rtrim(Tools::getShopDomainSsl(true, true), '/') . '/modules/mybike_xml_generator';
+
+        $this->context->smarty->assign([
+            'api_key'        => Configuration::get('MYBIKE_API_KEY'),
+            'cron_full_url'  => $baseUrl . '/cron_full.php?token=' . $token,
+            'cron_stock_url' => $baseUrl . '/cron_stock.php?token=' . $token,
+            'full_xml'       => $this->fileInfo(MYBIKE_FULL_XML),
+            'stock_xml'      => $this->fileInfo(MYBIKE_STOCK_XML),
+            'last_full'      => $this->lastRunData('FULL'),
+            'last_stock'     => $this->lastRunData('STOCK'),
+            'action_url'     => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
+            'confirmations'  => $this->confirmations,
+            'errors'         => $this->errors,
+        ]);
+
+        // fetch() su absoliučiu keliu — nepriklausomai nuo admin katalogo pavadinimo
+        $this->content = $this->context->smarty->fetch(
+            _PS_MODULE_DIR_ . 'mybike_xml_generator/views/templates/admin/configure.tpl'
+        );
+
+        // parent::initContent() jau priskyrė tuščią $this->content Smarty — atnaujiname
+        $this->context->smarty->assign('content', $this->content);
     }
 
     private function saveConfig()
@@ -102,25 +128,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             Configuration::updateValue('MYBIKE_LAST_STOCK_STATUS', 'error: ' . $e->getMessage());
             $this->errors[] = $e->getMessage();
         }
-    }
-
-    private function renderPage()
-    {
-        $token   = Configuration::get('MYBIKE_CRON_TOKEN');
-        $baseUrl = rtrim(Tools::getShopDomainSsl(true, true), '/') . '/modules/mybike_xml_generator';
-
-        $this->context->smarty->assign([
-            'api_key'         => Configuration::get('MYBIKE_API_KEY'),
-            'cron_full_url'   => $baseUrl . '/cron_full.php?token=' . $token,
-            'cron_stock_url'  => $baseUrl . '/cron_stock.php?token=' . $token,
-            'full_xml'        => $this->fileInfo(MYBIKE_FULL_XML),
-            'stock_xml'       => $this->fileInfo(MYBIKE_STOCK_XML),
-            'last_full'       => $this->lastRunData('FULL'),
-            'last_stock'      => $this->lastRunData('STOCK'),
-            'action_url'      => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
-        ]);
-
-        $this->setTemplate(_PS_MODULE_DIR_ . 'mybike_xml_generator/views/templates/admin/configure.tpl');
     }
 
     private function lastRunData($type)

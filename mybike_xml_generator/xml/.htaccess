@@ -1,2 +1,6 @@
 Order deny,allow
 Deny from all
+<FilesMatch "\.xml$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
