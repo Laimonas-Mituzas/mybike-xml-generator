@@ -1,15 +1,17 @@
-# MyBike Import Module
+# MyBike XML Generator
 
 PrestaShop 1.7 PHP modulis MyBike tiekėjo prekių duomenų paėmimui per REST API ir XML failų generavimui.
 
-**Tikslas:** Generuoti du XML failus (pilną ir stock), kuriuos naudos atskiras PS importo modulis.
+**Tikslas:** Generuoti du XML failus (pilną ir stock), kuriuos naudos atskiras PS importo modulis (būsimas projektas).
+
+**GitHub:** https://github.com/Laimonas-Mituzas/mybike-xml-generator
 
 ---
 
 ## API prieiga
 - Base URL: `http://mybike.lt`
 - Auth: `X-API-Key` header
-- API raktas: `mbk_6ea0d5cbcd3fca5ee18ea4ffbdd9299d79014e7fd447c1dc11993188`
+- API raktas: `api_key.txt` (neversijuojamas)
 - Dokumentacija: `mybike-api-docs.md`
 
 ---
@@ -22,64 +24,79 @@ PrestaShop 1.7 PHP modulis MyBike tiekėjo prekių duomenų paėmimui per REST A
 
 ---
 
-## Architektūra
+## Modulio informacija
+- **Pavadinimas:** MyBike XML Generator
+- **Modulio katalogas:** `mybike_xml_generator`
+- **Klasė:** `Mybike_xml_generator`
+- **Admin kontroleris:** `AdminMyBikeXmlGenerator`
+- **Autorius:** Augu su Presta
+- **PS versija:** 1.7
 
-### Stack
-- PHP, shared hosting (Python neveikia kaip servisas)
-- PrestaShop 1.7 modulis
-- Cron per hosting scheduler (URL kvietimas su token)
+---
 
-### Failų struktūra
+## Failų struktūra
 ```
-mybike_api_module/                          ← projekto katalogas (GitHub repo)
+mybike_api_module/                               ← GitHub repo šaknis
 ├── CLAUDE.md
 ├── mybike-api-docs.md
-├── mybike-api.pdf
-├── api_key.txt
-└── mybike_xml_generator/                          ← PS modulis (kopijuoti į PS /modules/)
-    ├── mybike_xml_generator.php                   # PS 1.7 modulio klasė
-    ├── cron_full.php                       # Daily → products_full.xml
-    ├── cron_stock.php                      # Hourly → products_stock.xml
-    ├── config/config.php                   # Konstantos ir keliai
+├── api_key.txt                                  # .gitignore — API raktas
+├── mybike-api.pdf                               # .gitignore — API spec PDF
+└── mybike_xml_generator/                        ← PS modulis → /modules/mybike_xml_generator/
+    ├── mybike_xml_generator.php                 # PS 1.7 modulio klasė
+    ├── logo.png                                 # Modulio logotipas
+    ├── cron_full.php                            # Daily → products_full.xml
+    ├── cron_stock.php                           # Hourly → products_stock.xml
+    ├── config/config.php                        # Konstantos ir keliai
     ├── classes/
-    │   ├── MyBikeApiClient.php             # cURL + retry
-    │   ├── MyBikeLogger.php                # Failų logavimas
-    │   ├── MyBikeFullSync.php              # Dviejų fazių sync logika
-    │   ├── MyBikeStockSync.php             # Stock sync logika
-    │   ├── MyBikeFullXmlBuilder.php        # XMLWriter → full XML
-    │   └── MyBikeStockXmlBuilder.php       # XMLWriter → stock XML
+    │   ├── MyBikeApiClient.php                  # cURL + retry (3x)
+    │   ├── MyBikeLogger.php                     # Failų logavimas su rotation
+    │   ├── MyBikeFullSync.php                   # Dviejų fazių sync logika
+    │   ├── MyBikeStockSync.php                  # Greitas stock sync
+    │   ├── MyBikeFullXmlBuilder.php             # XMLWriter → products_full.xml
+    │   └── MyBikeStockXmlBuilder.php            # XMLWriter → products_stock.xml
     ├── controllers/admin/
-    │   └── AdminMyBikeImportController.php
-    ├── views/templates/admin/configure.tpl
-    ├── output/                             # Generuojami XML (.gitignore)
-    ├── logs/                               # Sync logai (.gitignore)
+    │   └── AdminMyBikeXmlGeneratorController.php
+    ├── views/templates/admin/configure.tpl      # Admin puslapis
+    ├── output/                                  # .gitignore — generuojami XML
+    ├── logs/                                    # .gitignore — sync logai
     └── .gitignore
 ```
 
-### Sync strategija (~28k produktų — detail kvietimai neįmanomi visiems)
+---
+
+## Sync strategija (~28k produktų)
 
 | Sync | Dažnis | Strategija | API kvietimai |
 |------|--------|-----------|---------------|
-| Full XML | 1x/parą | Tik `/api/v1/products` sąrašas (limit=100) | ~280 |
-| Stock XML | 1x/valandą | Tas pats sąrašas | ~280 |
-| Detalės + nuotraukos | Tik naujiems | `/products/{id}` + `/products/{id}/images` | N×2 (lazy) |
+| Full XML | 1x/parą | Sąrašas (limit=100) + lazy details naujiems | ~280 + N×2 |
+| Stock XML | 1x/valandą | Tik sąrašas (limit=100) | ~280 |
 
 **Dviejų fazių pilnas sync:**
-1. Fetch visi sąrašo puslapiai → palyginti su esamu XML
-2. Nauji produktai → fetch details + images
-3. Pasikeitęs `images_count` → fetch images
-4. Kaina/stock pakitimas → atnaujinti iš sąrašo (be detail kvietimo)
-5. Generuoti abu XML iš tų pačių duomenų
+1. Fetch visi sąrašo puslapiai → palyginti su esamu `products_full.xml`
+2. Nauji produktai → fetch `/products/{id}` + `/products/{id}/images`
+3. Esami produktai → reuse cached duomenys iš XML
+4. Abu XML generuojami iš tų pačių duomenų vieno run metu
 
-### XML formatai
+---
 
-**products_full.xml** — visi laukai:
-`id, standard_item_id, manufacturer_id, brand, model, type, section, category, category_id, sub_category, price, base_price, color, size, description, specs (JSON CDATA), featured, availability{status,quantity,availability_date}, images[]{url,is_local}`
+## XML formatai
 
-**products_stock.xml** — minimalus (greitas hourly update):
+**products_full.xml:**
+`id, standard_item_id, manufacturer_id, brand, model, type, provider, section, category, category_id, sub_category, price, base_price, color, size, description (CDATA), specs (JSON CDATA), featured, availability{status,quantity,availability_date}, images[]{url,is_local}`
+
+**products_stock.xml:**
 `id, price, base_price, availability{status,quantity,availability_date}`
 
-### Cron URL'ai
+---
+
+## Admin puslapis
+- API rakto konfigūracija
+- Cron URL'ai (su token) — copy-paste į hosting scheduler
+- XML failų būsena: dydis, paskutinio generavimo laikas, produktų kiekis, trukmė, statusas
+- „Generuoti dabar" mygtukai abiem XML (tiesioginis paleidimas iš admin)
+- Token regeneravimas
+
+## Cron URL'ai (hosting scheduler)
 ```
 https://sportomanai.lt/modules/mybike_xml_generator/cron_full.php?token=SECRET
 https://sportomanai.lt/modules/mybike_xml_generator/cron_stock.php?token=SECRET
@@ -88,8 +105,9 @@ https://sportomanai.lt/modules/mybike_xml_generator/cron_stock.php?token=SECRET
 ---
 
 ## Svarbūs API faktai
-- Sąrašo endpointas turi visus reikalingus stock laukus — **nereikia detail kvietime stock XML**
-- `specs` — laisvas JSON objektas, rašyti kaip CDATA
-- `price` = dilerio kaina, `base_price` = MSRP — abi reikalingos
-- Nuotraukos: tik išoriniai URL (nesiųsti lokaliai į PS)
-- Bulk availability: iki 200 ID vienu kartu (optimizavimui)
+- Sąrašo endpointas turi visus stock laukus — **detail kvietimas stock XML nereikalingas**
+- `specs` — laisvas JSON objektas, saugomas kaip CDATA
+- `price` = dilerio kaina, `base_price` = MSRP — abi XML faile
+- Nuotraukos: tik išoriniai URL (nesiųsti lokaliai)
+- Sekcijos: `Bikes`, `E-Bikes`, `Parts`, `Accessories`
+- Bikes/E-Bikes kategorijos **neturi** sub-kategorijų; Parts/Accessories **turi**
