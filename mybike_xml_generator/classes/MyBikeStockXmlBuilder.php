@@ -21,6 +21,8 @@ class MyBikeStockXmlBuilder
 
             $writer->startElement('product');
             $writer->writeElement('id',                 (string)($p['id'] ?? ''));
+            $writer->writeElement('standard_item_id',   (string)($p['standard_item_id'] ?? ''));
+            $writer->writeElement('manufacturer_id',    (string)($p['manufacturer_id'] ?? ''));
             $writer->writeElement('price',              (string)($p['price'] ?? ''));
             $writer->writeElement('base_price',         (string)($p['base_price'] ?? ''));
             $writer->startElement('availability');

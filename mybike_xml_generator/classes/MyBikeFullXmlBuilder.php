@@ -21,6 +21,7 @@ class MyBikeFullXmlBuilder
 
             $writer->startElement('product');
             $writer->writeElement('id',                 (string)($p['id'] ?? ''));
+            $writer->writeElement('name',               trim(($p['brand'] ?? '') . ' ' . ($p['model'] ?? '')));
             $writer->writeElement('standard_item_id',   (string)($p['standard_item_id'] ?? ''));
             $writer->writeElement('manufacturer_id',    (string)($p['manufacturer_id'] ?? ''));
             $writer->writeElement('brand',              (string)($p['brand'] ?? ''));
