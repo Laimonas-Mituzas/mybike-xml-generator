@@ -13,7 +13,7 @@ class Mybike_xml_generator extends Module
     {
         $this->name          = 'mybike_xml_generator';
         $this->tab           = 'administration';
-        $this->version       = '1.0.0';
+        $this->version       = '2.0.0';
         $this->author        = 'Augu su Presta';
         $this->need_instance = 0;
         $this->bootstrap     = true;
