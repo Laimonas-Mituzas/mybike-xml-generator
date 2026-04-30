@@ -31,9 +31,13 @@ class MyBikeApiSync
         $start     = microtime(true);
         $this->logger->info('API full sync started');
 
-        $existingIds  = $this->loadExistingIds();
         $listProducts = $this->fetchAllProducts();
         $this->logger->info('Fetched ' . count($listProducts) . ' products from API');
+
+        // Reconnect before DB work — fetchAllProducts() can take 60-120s
+        // and some servers have wait_timeout as low as 60s
+        $this->reconnect();
+        $existingIds = $this->loadExistingIds();
 
         $detailsFetched = 0;
 
@@ -94,6 +98,8 @@ class MyBikeApiSync
         $listProducts = $this->fetchAllProducts();
         $this->logger->info('Fetched ' . count($listProducts) . ' products from API');
 
+        $this->reconnect();
+
         foreach ($listProducts as $p) {
             $this->upsertStock($p);
         }
@@ -108,25 +114,44 @@ class MyBikeApiSync
 
     private function fetchAllProducts(): array
     {
-        $filters = [];
-        if ($this->onlyInStock) {
-            $filters['in_stock'] = 1;
+        if (!empty($this->enabledIds)) {
+            return $this->fetchByCategories();
+        }
+        return $this->fetchAllPages();
+    }
+
+    // Fetches one API page-set per enabled category — avoids downloading all 28k products
+    // when only a subset of categories is selected.
+    private function fetchByCategories(): array
+    {
+        $baseFilters = $this->onlyInStock ? ['in_stock' => 1] : [];
+        $products    = [];
+
+        foreach ($this->enabledIds as $catId) {
+            $filters = $baseFilters + ['category' => $catId];
+            $page    = 1;
+            do {
+                $response = $this->api->getProducts($page, $filters);
+                $products = array_merge($products, $response['data']);
+                $meta     = $response['meta'];
+                $this->logger->info('Cat ' . $catId . ': page ' . $page . '/' . $meta['pages']);
+                $page++;
+            } while ($page <= $meta['pages']);
         }
 
+        return $products;
+    }
+
+    // Fetches all products with no category filter (used when no categories are selected).
+    private function fetchAllPages(): array
+    {
+        $filters  = $this->onlyInStock ? ['in_stock' => 1] : [];
         $products = [];
         $page     = 1;
 
         do {
             $response = $this->api->getProducts($page, $filters);
-            $batch    = $response['data'];
-
-            if (!empty($this->enabledIds)) {
-                $batch = array_values(array_filter($batch, function ($p) {
-                    return in_array((int)$p['category_id'], $this->enabledIds, true);
-                }));
-            }
-
-            $products = array_merge($products, $batch);
+            $products = array_merge($products, $response['data']);
             $meta     = $response['meta'];
             $this->logger->info('Fetched page ' . $page . '/' . $meta['pages']);
             $page++;
@@ -295,6 +320,21 @@ class MyBikeApiSync
             ':avail_quantity'   => (int)($avail['quantity'] ?? 0),
             ':avail_date'       => $availDate,
         ]);
+    }
+
+    private function reconnect(): void
+    {
+        try {
+            $this->pdo->query('SELECT 1');
+        } catch (Exception $e) {
+            $this->pdo = new PDO(
+                'mysql:host=' . _DB_SERVER_ . ';dbname=' . _DB_NAME_ . ';charset=utf8mb4',
+                _DB_USER_,
+                _DB_PASSWD_,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            $this->logger->info('PDO reconnected after idle timeout');
+        }
     }
 
     private function markDeleted(string $syncStart): void
