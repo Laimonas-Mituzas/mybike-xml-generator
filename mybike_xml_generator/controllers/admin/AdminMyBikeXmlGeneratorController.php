@@ -54,6 +54,8 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->runPsImport();
         } elseif (Tools::isSubmit('clear_staging')) {
             $this->clearStaging();
+        } elseif (Tools::isSubmit('run_ps_import_test')) {
+            $this->runPsImportTest();
         }
     }
 
@@ -108,6 +110,7 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'last_api_sync'          => $this->lastApiSyncData(),
             'last_import'            => $this->lastImportData(),
             'staging_count'          => $this->getStagingCount(),
+            'last_test_import'       => $this->lastTestImportData(),
         ]);
 
         $this->content = $this->context->smarty->fetch(
@@ -389,6 +392,44 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         $this->confirmations[] = $this->l('Staging lentelė išvalyta.');
     }
 
+    private function runPsImportTest()
+    {
+        set_time_limit(120);
+        $mybike_id = (int)Tools::getValue('test_mybike_id');
+        $logger    = new MyBikeLogger(MYBIKE_IMPORT_LOG);
+        $import    = new MyBikePsImport($logger);
+
+        try {
+            $result = $import->runSingle($mybike_id);
+
+            $detail = 'mybike_id=' . $result['mybike_id']
+                . ' section=' . $result['section']
+                . ' "' . $result['name'] . '"'
+                . ' group=' . ($result['group_size'] ?? 1)
+                . ' ps_id=' . $result['ps_id_product']
+                . ' imported=' . $result['imported']
+                . ' updated=' . $result['updated']
+                . ' skipped=' . $result['skipped']
+                . ' ' . $result['duration'] . 's';
+
+            $this->setConfig('MYBIKE_LAST_TEST_RUN',    date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_TEST_STATUS', 'ok');
+            $this->setConfig('MYBIKE_LAST_TEST_DETAIL', $detail);
+
+            $outcome = $result['imported'] ? 'naujas' : ($result['updated'] ? 'atnaujintas' : 'praleistas');
+            $_SESSION['mybike_success'] = 'Test importas: mybike_id=' . $result['mybike_id']
+                . ' → ps_id_product=' . $result['ps_id_product']
+                . ' (' . $outcome . ') ' . $result['duration'] . 's';
+        } catch (Exception $e) {
+            $logger->error($e->getMessage());
+            $this->setConfig('MYBIKE_LAST_TEST_RUN',    date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_TEST_STATUS', 'error: ' . $e->getMessage());
+            $this->setConfig('MYBIKE_LAST_TEST_DETAIL', '');
+            $_SESSION['mybike_error'] = 'Test importas nepavyko: ' . $e->getMessage();
+        }
+        Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
+    }
+
     // -------------------------------------------------------------------
     // Data helpers
     // -------------------------------------------------------------------
@@ -464,6 +505,15 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'skipped'  => Configuration::get('MYBIKE_LAST_IMPORT_SKIPPED')  ?: '—',
             'duration' => Configuration::get('MYBIKE_LAST_IMPORT_DURATION') ?: '—',
             'status'   => Configuration::get('MYBIKE_LAST_IMPORT_STATUS')   ?: '—',
+        ];
+    }
+
+    private function lastTestImportData(): array
+    {
+        return [
+            'run'    => Configuration::get('MYBIKE_LAST_TEST_RUN')    ?: '',
+            'status' => Configuration::get('MYBIKE_LAST_TEST_STATUS') ?: '',
+            'detail' => Configuration::get('MYBIKE_LAST_TEST_DETAIL') ?: '',
         ];
     }
 

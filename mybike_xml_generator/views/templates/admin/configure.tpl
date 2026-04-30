@@ -352,6 +352,41 @@
     </tbody>
   </table>
 
+  {* ------------------------------------------------------------------ *}
+  {* v2: TEST IMPORTAS *}
+  {* ------------------------------------------------------------------ *}
+  <h4 style="margin-top:24px">v2 — Test importas (1 prekė)</h4>
+  <p class="help-block">
+    Importuoja vieną staging įrašą (Bikes/E-Bikes — visą spalvos grupę su visomis dydžio kombinacijomis).
+    Jei ID nenurodytas — naudojamas pirmas.
+  </p>
+  <form method="post" action="{$action_url}" style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+    <div class="form-group" style="margin:0">
+      <label>mybike_id</label>
+      <input type="number" name="test_mybike_id" class="form-control" style="width:140px"
+             placeholder="(pirmas)" min="1">
+    </div>
+    <div style="margin:0">
+      <button type="submit" name="run_ps_import_test" class="btn btn-default btn-sm"
+              onclick="return confirm('Importuoti 1 prekę iš staging?')">
+        <i class="icon-play"></i> Testuoti
+      </button>
+    </div>
+  </form>
+  {if $last_test_import.run}
+    <div style="margin-top:10px;padding:10px 14px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:4px;font-size:12px">
+      <strong>Paskutinis testas:</strong> {$last_test_import.run|escape:'html'} —
+      {if $last_test_import.status eq 'ok'}
+        <span class="label label-success">OK</span>
+      {elseif $last_test_import.status}
+        <span class="label label-danger" title="{$last_test_import.status|escape:'html'}">Klaida</span>
+      {/if}
+      {if $last_test_import.detail}
+        <code style="display:block;margin-top:6px;font-size:11px;word-break:break-all">{$last_test_import.detail|escape:'html'}</code>
+      {/if}
+    </div>
+  {/if}
+
   <h4 style="margin-top:24px">XML failai</h4>
   <table class="table" style="max-width:900px">
     <thead>

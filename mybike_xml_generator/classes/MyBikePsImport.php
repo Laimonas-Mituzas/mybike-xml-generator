@@ -29,6 +29,92 @@ class MyBikePsImport
     }
 
     /**
+     * Imports a single product (or its full group for Bikes/E-Bikes) from staging.
+     * Pass mybike_id = 0 to use the first available staging row.
+     * Returns the standard stats array plus 'mybike_id', 'section', 'name',
+     * 'group_size', 'ps_id_product'.
+     */
+    public function runSingle(int $mybike_id = 0): array
+    {
+        $start = microtime(true);
+
+        if ($mybike_id <= 0) {
+            $first = Db::getInstance()->getRow(
+                "SELECT `mybike_id` FROM `" . _DB_PREFIX_ . "mybike_product`
+                 WHERE `avail_status` != 'deleted'
+                 ORDER BY `mybike_id` LIMIT 1"
+            );
+            if (!$first) {
+                throw new Exception('Staging lentelė tuščia');
+            }
+            $mybike_id = (int)$first['mybike_id'];
+        }
+
+        $row = Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'mybike_product`
+             WHERE `mybike_id` = ' . $mybike_id
+        );
+
+        if (!$row) {
+            throw new Exception('mybike_id=' . $mybike_id . ' nerastas staging lentelėje');
+        }
+
+        $this->logger->info('Single test: mybike_id=' . $mybike_id . ' section=' . $row['section']);
+
+        $mfResult   = $this->manufacturerMap->warmUp();
+        $attrResult = $this->attributeMap->warmUp();
+        $this->logger->info('ManufacturerMap: found=' . $mfResult['found'] . ' created=' . $mfResult['created']);
+        $this->logger->info('AttributeMap: group_id=' . $attrResult['group_id'] . ' found=' . $attrResult['found'] . ' created=' . $attrResult['created']);
+
+        $section = $row['section'];
+
+        if (in_array($section, self::BIKE_SECTIONS, true)) {
+            // Load entire color-group so combinations can be determined correctly
+            $groupRows = Db::getInstance()->executeS(
+                'SELECT * FROM `' . _DB_PREFIX_ . "mybike_product`
+                 WHERE `brand` = '" . pSQL($row['brand']) . "'
+                   AND `model` = '" . pSQL($row['model']) . "'
+                   AND `color` = '" . pSQL($row['color']) . "'
+                   AND `section` = '" . pSQL($section) . "'
+                   AND `avail_status` != 'deleted'
+                 ORDER BY `mybike_id`"
+            );
+            $this->stats['group_size'] = count($groupRows);
+            $this->processGroup($groupRows);
+        } else {
+            $this->stats['group_size'] = 1;
+            $this->processRow($row);
+        }
+
+        $this->syncImages();
+
+        $duration                     = (int)round(microtime(true) - $start);
+        $this->stats['duration']      = $duration;
+        $this->stats['mybike_id']     = $mybike_id;
+        $this->stats['section']       = $section;
+        $this->stats['name']          = $this->buildName($row);
+        $this->stats['warnings']      = $this->stats['warnings'] ?? [];
+
+        // Re-fetch to show assigned PS IDs
+        $finalRow = Db::getInstance()->getRow(
+            'SELECT `ps_id_product` FROM `' . _DB_PREFIX_ . 'mybike_product`
+             WHERE `mybike_id` = ' . $mybike_id
+        );
+        $this->stats['ps_id_product'] = $finalRow ? (int)$finalRow['ps_id_product'] : 0;
+
+        $this->logger->info(
+            'Single test done: mybike_id=' . $mybike_id
+            . ' ps_id_product=' . $this->stats['ps_id_product']
+            . ' imported=' . $this->stats['imported']
+            . ' updated=' . $this->stats['updated']
+            . ' skipped=' . $this->stats['skipped']
+            . ' ' . $duration . 's'
+        );
+
+        return $this->stats;
+    }
+
+    /**
      * Runs full PS import from staging table.
      * Returns ['imported', 'updated', 'skipped', 'warnings', 'duration'].
      */
