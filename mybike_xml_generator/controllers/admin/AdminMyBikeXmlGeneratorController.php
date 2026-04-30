@@ -57,6 +57,8 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->runStockXml();
         } elseif (Tools::isSubmit('run_combinations')) {
             $this->runCombinationsXml();
+        } elseif (Tools::isSubmit('clear_log')) {
+            $this->clearLog();
         }
     }
 
@@ -114,6 +116,10 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'last_import'            => $this->lastImportData(),
             'staging_count'          => $this->getStagingCount(),
             'last_test_import'       => $this->lastTestImportData(),
+            // log tab
+            'log_api_sync'           => $this->getLogContent(MYBIKE_API_SYNC_LOG),
+            'log_ps_import'          => $this->getLogContent(MYBIKE_IMPORT_LOG),
+            'log_xml'                => $this->getLogContent(MYBIKE_XML_LOG),
         ]);
 
         $this->content = $this->context->smarty->fetch(
@@ -441,6 +447,22 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
     }
 
+    private function clearLog()
+    {
+        $map = [
+            'api_sync'  => MYBIKE_API_SYNC_LOG,
+            'ps_import' => MYBIKE_IMPORT_LOG,
+            'xml'       => MYBIKE_XML_LOG,
+        ];
+        $which = Tools::getValue('clear_log_which');
+        if (!isset($map[$which])) {
+            $this->errors[] = $this->l('Nežinomas log failas.');
+            return;
+        }
+        file_put_contents($map[$which], '');
+        $this->confirmations[] = $this->l('Log failas išvalytas.');
+    }
+
     // -------------------------------------------------------------------
     // Data helpers
     // -------------------------------------------------------------------
@@ -553,6 +575,24 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         } catch (Exception $e) {
             // non-fatal
         }
+    }
+
+    private function getLogContent(string $path, int $maxLines = 500): array
+    {
+        if (!file_exists($path)) {
+            return ['exists' => false, 'content' => '', 'size' => '—', 'modified' => '—', 'total_lines' => 0, 'truncated' => false];
+        }
+        $bytes    = filesize($path);
+        $size     = $bytes >= 1048576 ? round($bytes / 1048576, 1) . ' MB' : round($bytes / 1024, 1) . ' KB';
+        $modified = date('Y-m-d H:i:s', filemtime($path));
+        $all      = file($path, FILE_IGNORE_NEW_LINES);
+        if ($all === false) {
+            return ['exists' => true, 'content' => 'Nepavyko perskaityti.', 'size' => $size, 'modified' => $modified, 'total_lines' => 0, 'truncated' => false];
+        }
+        $total     = count($all);
+        $truncated = $total > $maxLines;
+        $content   = implode("\n", array_slice($all, -$maxLines));
+        return ['exists' => true, 'content' => $content, 'size' => $size, 'modified' => $modified, 'total_lines' => $total, 'truncated' => $truncated];
     }
 
     private function fileInfo($path): array

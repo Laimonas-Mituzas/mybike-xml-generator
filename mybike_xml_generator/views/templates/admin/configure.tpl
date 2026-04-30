@@ -13,6 +13,7 @@
     <li>              <a href="#mbk-tab-categories"   data-toggle="tab"><i class="icon-tags"></i> Kategorijos</a></li>
     <li>              <a href="#mbk-tab-import"       data-toggle="tab"><i class="icon-download"></i> Importas</a></li>
     <li>              <a href="#mbk-tab-xml"          data-toggle="tab"><i class="icon-file-text"></i> XML failai</a></li>
+    <li>              <a href="#mbk-tab-log"          data-toggle="tab"><i class="icon-list-alt"></i> Registras</a></li>
   </ul>
 
   <div class="tab-content">
@@ -98,14 +99,6 @@
           PS kaina = kainos_laukas × koeficientas {ldelim}÷ (1 + PVM%) jei su PVM{rdelim}.
           <code>wholesale_price</code> = kitas kainos laukas, be koeficiento.
         </p>
-      </form>
-
-      <h4 style="margin-top:24px">Cron token</h4>
-      <form method="post" action="{$action_url}" style="margin-top:6px">
-        <button type="submit" name="regen_token" class="btn btn-default btn-sm"
-                onclick="return confirm('Regeneruoti token? Esami cron URL\'ai nustos veikti.')">
-          <i class="icon-refresh"></i> Regeneruoti token
-        </button>
       </form>
 
     </div>{* /tab-settings *}
@@ -233,6 +226,15 @@
     {* TAB 3 — IMPORTAS *}
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-import">
+
+      <h4>Cron token</h4>
+      <p class="help-block">Token naudojamas visuose cron URL'uose žemiau. Regeneravus — visi esami URL nustos veikti.</p>
+      <form method="post" action="{$action_url}" style="margin-bottom:24px">
+        <button type="submit" name="regen_token" class="btn btn-default btn-sm"
+                onclick="return confirm('Regeneruoti token? Esami cron URL\'ai nustos veikti.')">
+          <i class="icon-refresh"></i> Regeneruoti token
+        </button>
+      </form>
 
       <h4>API sinchronizacija (API → staging DB)</h4>
       <p class="help-block">Parsiunčia produktus iš MyBike API ir išsaugo lentelėje <code>ps_mybike_product</code>.</p>
@@ -446,6 +448,97 @@
       </table>
 
     </div>{* /tab-xml *}
+
+    {* ================================================================== *}
+    {* TAB 5 — REGISTRAS *}
+    {* ================================================================== *}
+    <div class="tab-pane" id="mbk-tab-log">
+
+      <p class="help-block">
+        Log failai rotuojami automatiškai: pasiekus 1 MB, failas pervardijamas į <code>.old</code> ir pradedamas naujas.
+        Rodoma paskutinės 500 eilučių.
+      </p>
+
+      {* --- API Sync log --- *}
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
+          <h4 style="margin:0">API Sync</h4>
+          {if $log_api_sync.exists}
+            <span class="text-muted" style="font-size:12px">
+              {$log_api_sync.size} &nbsp;|&nbsp; {$log_api_sync.modified}
+              {if $log_api_sync.truncated}&nbsp;|&nbsp; <em>paskutinės 500 iš {$log_api_sync.total_lines} eilučių</em>
+              {else}&nbsp;|&nbsp; {$log_api_sync.total_lines} eilučių{/if}
+            </span>
+            <form method="post" action="{$action_url}" style="margin:0">
+              <input type="hidden" name="clear_log_which" value="api_sync">
+              <button type="submit" name="clear_log" class="btn btn-danger btn-xs"
+                      onclick="return confirm('Išvalyti API Sync log failą?')">
+                <i class="icon-trash"></i> Išvalyti
+              </button>
+            </form>
+          {else}<span class="text-muted" style="font-size:12px">Failas neegzistuoja</span>{/if}
+        </div>
+        {if $log_api_sync.exists && $log_api_sync.content}
+          <pre style="max-height:320px;overflow-y:auto;font-size:11px;background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:4px;border:none;white-space:pre-wrap;word-break:break-all">{$log_api_sync.content|escape:'html'}</pre>
+        {elseif $log_api_sync.exists}
+          <p class="text-muted" style="font-size:12px;font-style:italic">Log failas tuščias.</p>
+        {/if}
+      </div>
+
+      {* --- PS Importas log --- *}
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
+          <h4 style="margin:0">PS Importas</h4>
+          {if $log_ps_import.exists}
+            <span class="text-muted" style="font-size:12px">
+              {$log_ps_import.size} &nbsp;|&nbsp; {$log_ps_import.modified}
+              {if $log_ps_import.truncated}&nbsp;|&nbsp; <em>paskutinės 500 iš {$log_ps_import.total_lines} eilučių</em>
+              {else}&nbsp;|&nbsp; {$log_ps_import.total_lines} eilučių{/if}
+            </span>
+            <form method="post" action="{$action_url}" style="margin:0">
+              <input type="hidden" name="clear_log_which" value="ps_import">
+              <button type="submit" name="clear_log" class="btn btn-danger btn-xs"
+                      onclick="return confirm('Išvalyti PS Importas log failą?')">
+                <i class="icon-trash"></i> Išvalyti
+              </button>
+            </form>
+          {else}<span class="text-muted" style="font-size:12px">Failas neegzistuoja</span>{/if}
+        </div>
+        {if $log_ps_import.exists && $log_ps_import.content}
+          <pre style="max-height:320px;overflow-y:auto;font-size:11px;background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:4px;border:none;white-space:pre-wrap;word-break:break-all">{$log_ps_import.content|escape:'html'}</pre>
+        {elseif $log_ps_import.exists}
+          <p class="text-muted" style="font-size:12px;font-style:italic">Log failas tuščias.</p>
+        {/if}
+      </div>
+
+      {* --- XML generavimas log --- *}
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
+          <h4 style="margin:0">XML generavimas</h4>
+          {if $log_xml.exists}
+            <span class="text-muted" style="font-size:12px">
+              {$log_xml.size} &nbsp;|&nbsp; {$log_xml.modified}
+              {if $log_xml.truncated}&nbsp;|&nbsp; <em>paskutinės 500 iš {$log_xml.total_lines} eilučių</em>
+              {else}&nbsp;|&nbsp; {$log_xml.total_lines} eilučių{/if}
+            </span>
+            <form method="post" action="{$action_url}" style="margin:0">
+              <input type="hidden" name="clear_log_which" value="xml">
+              <button type="submit" name="clear_log" class="btn btn-danger btn-xs"
+                      onclick="return confirm('Išvalyti XML generavimas log failą?')">
+                <i class="icon-trash"></i> Išvalyti
+              </button>
+            </form>
+          {else}<span class="text-muted" style="font-size:12px">Failas neegzistuoja</span>{/if}
+        </div>
+        {if $log_xml.exists && $log_xml.content}
+          <pre style="max-height:320px;overflow-y:auto;font-size:11px;background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:4px;border:none;white-space:pre-wrap;word-break:break-all">{$log_xml.content|escape:'html'}</pre>
+        {elseif $log_xml.exists}
+          <p class="text-muted" style="font-size:12px;font-style:italic">Log failas tuščias.</p>
+        {/if}
+      </div>
+
+
+    </div>{* /tab-log *}
 
   </div>{* /tab-content *}
 </div>
