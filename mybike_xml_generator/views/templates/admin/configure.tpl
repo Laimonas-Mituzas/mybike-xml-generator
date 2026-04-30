@@ -236,7 +236,7 @@
         </button>
       </form>
 
-      <h4>API sinchronizacija (API → staging DB)</h4>
+      <h4>Duomenų atsisiuntimas iš API</h4>
       <p class="help-block">Parsiunčia produktus iš MyBike API ir išsaugo lentelėje <code>ps_mybike_product</code>.</p>
       <table class="table" style="max-width:900px">
         <thead>
@@ -261,7 +261,7 @@
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_api_sync_full" class="btn btn-primary btn-sm"
                         onclick="return confirm('Paleisti API full sync? Gali užtrukti kelias minutes.')">
-                  <i class="icon-play"></i> Paleisti
+                  <i class="icon-play"></i>  Paleisti
                 </button>
               </form>
             </td>
@@ -275,7 +275,7 @@
             <td>
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_api_sync_stock" class="btn btn-default btn-sm">
-                  <i class="icon-play"></i> Paleisti
+                  <i class="icon-play"></i>  Paleisti
                 </button>
               </form>
             </td>
@@ -283,19 +283,19 @@
         </tbody>
       </table>
       <p class="help-block">
-        Staging lentelėje: <strong>{$staging_count|intval}</strong> įrašų.
+        Atsisiųsta prekių: <strong>{$staging_count|intval}</strong>.
         <form method="post" action="{$action_url}" style="display:inline;margin-left:12px">
           <button type="submit" name="clear_staging" class="btn btn-danger btn-xs"
-                  onclick="return confirm('Išvalyti staging lentelę? Visi API duomenys ir PS susiejimai bus prarasti.')">
-            <i class="icon-trash"></i> Išvalyti staging
+                  onclick="return confirm('Išvalyti API duomenis? Visi atsisiųsti duomenys ir PS susiejimai bus prarasti.')">
+            <i class="icon-trash"></i> Išvalyti API duomenis
           </button>
         </form>
       </p>
 
       <hr style="margin:24px 0">
 
-      <h4>PS importas (staging → PrestaShop)</h4>
-      <p class="help-block">Sukuria / atnaujina PS produktus, kombinacijas, atsargas ir nuotraukas iš staging lentelės.</p>
+      <h4>Prekių importas į parduotuvę</h4>
+      <p class="help-block">Sukuria / atnaujina PrestaShop produktus, kombinacijas, atsargas ir nuotraukas iš atsisiųstų API duomenų.</p>
       <table class="table" style="max-width:900px">
         <thead>
           <tr><th>Paskutinis</th><th>Nauji</th><th>Atnaujinta</th><th>Praleista</th><th>Trukmė</th><th>Statusas</th><th>Cron URL</th><th></th></tr>
@@ -320,7 +320,7 @@
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_ps_import" class="btn btn-primary btn-sm"
                         onclick="return confirm('Paleisti PS importą? Gali užtrukti ilgai (iki 30 min 28k prekių).')">
-                  <i class="icon-play"></i> Importuoti dabar
+                  <i class="icon-play"></i>  Importuoti dabar
                 </button>
               </form>
             </td>
@@ -332,7 +332,7 @@
 
       <h4>Test importas (1 prekė)</h4>
       <p class="help-block">
-        Importuoja vieną staging įrašą (Bikes/E-Bikes — visą spalvos grupę su kombinacijomis).
+        Importuoja vieną prekę iš atsisiųstų API duomenų (Bikes/E-Bikes — visą spalvos grupę su kombinacijomis).
         Jei ID nenurodytas — naudojamas pirmas.
       </p>
       <form method="post" action="{$action_url}" style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
@@ -343,7 +343,7 @@
         </div>
         <div style="margin:0">
           <button type="submit" name="run_ps_import_test" class="btn btn-default btn-sm"
-                  onclick="return confirm('Importuoti 1 prekę iš staging?')">
+                  onclick="return confirm('Importuoti 1 prekę iš API duomenų?')">
             <i class="icon-play"></i> Testuoti
           </button>
         </div>
@@ -369,7 +369,7 @@
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-xml">
 
-      <p class="help-block">XML failai generuojami iš <code>ps_mybike_product</code> staging lentelės. Paleiskite API sync prieš generuodami.</p>
+      <p class="help-block">XML failai generuojami iš atsisiųstų API duomenų. Prieš generuodami paleiskite duomenų atsisiuntimą iš API.</p>
       <table class="table" style="max-width:960px">
         <thead>
           <tr><th>Failas</th><th>Sugeneruotas</th><th>Dydis</th><th>Produktų</th><th>Trukmė</th><th>Statusas</th><th>Cron URL + Generuoti</th></tr>
