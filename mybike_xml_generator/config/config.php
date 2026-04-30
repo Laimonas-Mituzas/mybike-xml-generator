@@ -16,3 +16,6 @@ define('MYBIKE_API_LIMIT', 100);
 define('MYBIKE_API_TIMEOUT', 30);
 define('MYBIKE_API_RETRY', 3);
 define('MYBIKE_LOG_MAX_SIZE', 1048576); // 1 MB
+
+define('MYBIKE_API_SYNC_LOG',    MYBIKE_LOGS_DIR . '/api_sync.log');
+define('MYBIKE_IMPORT_LOG',      MYBIKE_LOGS_DIR . '/ps_import.log');
