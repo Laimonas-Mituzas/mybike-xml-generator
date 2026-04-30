@@ -11,6 +11,11 @@ require_once dirname(__FILE__) . '/../../classes/MyBikeStockXmlBuilder.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeFullSync.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeStockSync.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeCategoryManager.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikePriceCalc.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeManufacturerMap.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeAttributeMap.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeApiSync.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikePsImport.php';
 
 class AdminMyBikeXmlGeneratorController extends ModuleAdminController
 {
@@ -21,7 +26,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         parent::__construct();
     }
 
-    // PS kviečia postProcess() prieš initContent() — čia tvarkome form actions
     public function postProcess()
     {
         if (Tools::isSubmit('save_config')) {
@@ -36,6 +40,20 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->refreshCategories();
         } elseif (Tools::isSubmit('save_categories')) {
             $this->saveCategories();
+        } elseif (Tools::isSubmit('save_import_config')) {
+            $this->saveImportConfig();
+        } elseif (Tools::isSubmit('refresh_category_map')) {
+            $this->refreshCategoryMap();
+        } elseif (Tools::isSubmit('save_category_map')) {
+            $this->saveCategoryMap();
+        } elseif (Tools::isSubmit('run_api_sync_full')) {
+            $this->runApiSyncFull();
+        } elseif (Tools::isSubmit('run_api_sync_stock')) {
+            $this->runApiSyncStock();
+        } elseif (Tools::isSubmit('run_ps_import')) {
+            $this->runPsImport();
+        } elseif (Tools::isSubmit('clear_staging')) {
+            $this->clearStaging();
         }
     }
 
@@ -43,7 +61,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
     {
         parent::initContent();
 
-        // Flash pranešimai po redirect (sync rezultatai)
         if (!empty($_SESSION['mybike_success'])) {
             $this->confirmations[] = $_SESSION['mybike_success'];
             unset($_SESSION['mybike_success']);
@@ -57,31 +74,51 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         $baseUrl = rtrim(Tools::getShopDomainSsl(true, true), '/') . '/modules/mybike_xml_generator';
 
         $this->context->smarty->assign([
-            'api_key'             => Configuration::get('MYBIKE_API_KEY'),
-            'cron_full_url'       => $baseUrl . '/cron_full.php?token=' . $token,
-            'cron_stock_url'      => $baseUrl . '/cron_stock.php?token=' . $token,
-            'full_xml'            => $this->fileInfo(MYBIKE_FULL_XML),
-            'stock_xml'           => $this->fileInfo(MYBIKE_STOCK_XML),
-            'last_full'           => $this->lastRunData('FULL'),
-            'last_stock'          => $this->lastRunData('STOCK'),
-            'action_url'          => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
-            'confirmations'       => $this->confirmations,
-            'errors'              => $this->errors,
+            // v1 — existing
+            'api_key'                => Configuration::get('MYBIKE_API_KEY'),
+            'cron_full_url'          => $baseUrl . '/cron_full.php?token=' . $token,
+            'cron_stock_url'         => $baseUrl . '/cron_stock.php?token=' . $token,
+            'full_xml'               => $this->fileInfo(MYBIKE_FULL_XML),
+            'stock_xml'              => $this->fileInfo(MYBIKE_STOCK_XML),
+            'last_full'              => $this->lastRunData('FULL'),
+            'last_stock'             => $this->lastRunData('STOCK'),
+            'action_url'             => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
+            'confirmations'          => $this->confirmations,
+            'errors'                 => $this->errors,
             'only_in_stock'          => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
             'categories_grouped'     => MyBikeCategoryManager::getAllGrouped(),
             'categories_empty'       => MyBikeCategoryManager::isEmpty(),
             'categories_enabled_cnt' => count(MyBikeCategoryManager::getEnabledIds()),
             'categories_total_cnt'   => array_sum(array_map('count', MyBikeCategoryManager::getAllGrouped())),
+            // v2 — import config
+            'import_price_key'       => Configuration::get('MYBIKE_PRICE_KEY') ?: 'price',
+            'import_coefficient'     => Configuration::get('MYBIKE_PRICE_COEFFICIENT') ?: '1.00',
+            'import_with_vat'        => (bool)(int)Configuration::get('MYBIKE_PRICE_WITH_VAT'),
+            'import_tax_rules_id'    => (int)Configuration::get('MYBIKE_IMPORT_TAX_RULES_ID'),
+            'tax_rules_groups'       => $this->getTaxRulesGroups(),
+            // v2 — category map
+            'category_map_grouped'   => $this->getCategoryMapGrouped(),
+            'category_map_empty'     => $this->isCategoryMapEmpty(),
+            'ps_categories'          => $this->getPsCategories(),
+            // v2 — cron URLs
+            'cron_api_sync_full_url'  => $baseUrl . '/cron_api_sync.php?token=' . $token . '&mode=full',
+            'cron_api_sync_stock_url' => $baseUrl . '/cron_api_sync.php?token=' . $token . '&mode=stock',
+            'cron_ps_import_url'      => $baseUrl . '/cron_ps_import.php?token=' . $token,
+            // v2 — last run data
+            'last_api_sync'          => $this->lastApiSyncData(),
+            'last_import'            => $this->lastImportData(),
+            'staging_count'          => $this->getStagingCount(),
         ]);
 
-        // fetch() su absoliučiu keliu — nepriklausomai nuo admin katalogo pavadinimo
         $this->content = $this->context->smarty->fetch(
             _PS_MODULE_DIR_ . 'mybike_xml_generator/views/templates/admin/configure.tpl'
         );
-
-        // parent::initContent() jau priskyrė tuščią $this->content Smarty — atnaujiname
         $this->context->smarty->assign('content', $this->content);
     }
+
+    // -------------------------------------------------------------------
+    // v1 actions (unchanged)
+    // -------------------------------------------------------------------
 
     private function saveConfig()
     {
@@ -102,10 +139,7 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
     private function runFullSync()
     {
         $apiKey = Configuration::get('MYBIKE_API_KEY');
-        if (!$apiKey) {
-            $this->errors[] = $this->l('API raktas nenurodytas.');
-            return;
-        }
+        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
 
         set_time_limit(600);
         $config = [
@@ -128,17 +162,13 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->setConfig('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
             $_SESSION['mybike_error'] = $e->getMessage();
         }
-
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
     }
 
     private function runStockSync()
     {
         $apiKey = Configuration::get('MYBIKE_API_KEY');
-        if (!$apiKey) {
-            $this->errors[] = $this->l('API raktas nenurodytas.');
-            return;
-        }
+        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
 
         set_time_limit(300);
         $config = [
@@ -161,36 +191,13 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->setConfig('MYBIKE_LAST_STOCK_STATUS', 'error: ' . $e->getMessage());
             $_SESSION['mybike_error'] = $e->getMessage();
         }
-
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
-    }
-
-    private function setConfig($name, $value)
-    {
-        try {
-            $pdo   = new PDO('mysql:host=' . _DB_SERVER_ . ';dbname=' . _DB_NAME_ . ';charset=utf8mb4', _DB_USER_, _DB_PASSWD_);
-            $table = _DB_PREFIX_ . 'configuration';
-            $count = $pdo->prepare('SELECT COUNT(*) FROM `' . $table . '` WHERE `name` = ?');
-            $count->execute([$name]);
-            if ($count->fetchColumn()) {
-                $pdo->prepare('UPDATE `' . $table . '` SET `value` = ?, `date_upd` = NOW() WHERE `name` = ?')
-                    ->execute([$value, $name]);
-            } else {
-                $pdo->prepare('INSERT INTO `' . $table . '` (`name`,`value`,`date_add`,`date_upd`) VALUES (?,?,NOW(),NOW())')
-                    ->execute([$name, $value]);
-            }
-        } catch (Exception $e) {
-            // DB write failed — sync result was OK, only status not recorded
-        }
     }
 
     private function refreshCategories()
     {
         $apiKey = Configuration::get('MYBIKE_API_KEY');
-        if (!$apiKey) {
-            $this->errors[] = $this->l('API raktas nenurodytas.');
-            return;
-        }
+        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
 
         try {
             $client   = new MyBikeApiClient($apiKey);
@@ -211,7 +218,256 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         $this->confirmations[] = $this->l('Kategorijų pasirinkimas išsaugotas.');
     }
 
-    private function lastRunData($type)
+    // -------------------------------------------------------------------
+    // v2 actions
+    // -------------------------------------------------------------------
+
+    private function saveImportConfig()
+    {
+        $priceKey   = Tools::getValue('import_price_key');
+        $priceKey   = in_array($priceKey, ['price', 'base_price'], true) ? $priceKey : 'price';
+        $coeff      = (float)str_replace(',', '.', Tools::getValue('import_coefficient'));
+        $coeff      = max(0.01, $coeff);
+        $withVat    = Tools::getValue('import_with_vat') ? '1' : '0';
+        $taxRulesId = (int)Tools::getValue('import_tax_rules_id');
+
+        Configuration::updateValue('MYBIKE_PRICE_KEY',            $priceKey);
+        Configuration::updateValue('MYBIKE_PRICE_COEFFICIENT',    number_format($coeff, 4, '.', ''));
+        Configuration::updateValue('MYBIKE_PRICE_WITH_VAT',       $withVat);
+        Configuration::updateValue('MYBIKE_IMPORT_TAX_RULES_ID',  (string)$taxRulesId);
+
+        $this->confirmations[] = $this->l('Importo konfigūracija išsaugota.');
+    }
+
+    private function refreshCategoryMap()
+    {
+        // Populate ps_mybike_category_map from ps_mybike_xml_category (preserves existing ps_id_category)
+        Db::getInstance()->execute(
+            'INSERT INTO `' . _DB_PREFIX_ . 'mybike_category_map`
+               (`mybike_category_id`, `mybike_section`, `mybike_category`, `mybike_product_count`, `date_upd`)
+             SELECT `id_category`, `section`, `title`, `product_count`, NOW()
+             FROM `' . _DB_PREFIX_ . 'mybike_xml_category`
+             ON DUPLICATE KEY UPDATE
+               `mybike_section`       = VALUES(`mybike_section`),
+               `mybike_category`      = VALUES(`mybike_category`),
+               `mybike_product_count` = VALUES(`mybike_product_count`),
+               `date_upd`             = NOW()'
+        );
+        $this->confirmations[] = $this->l('Kategorijų susiejimo sąrašas atnaujintas.');
+    }
+
+    private function saveCategoryMap()
+    {
+        $mappings = Tools::getValue('category_map');
+        if (!is_array($mappings)) {
+            $this->confirmations[] = $this->l('Nieko neišsaugota.');
+            return;
+        }
+
+        $saved = 0;
+        foreach ($mappings as $mybikeCategoryId => $psCategoryId) {
+            $mybikeCategoryId = (int)$mybikeCategoryId;
+            $psId             = ($psCategoryId !== '' && $psCategoryId !== '0') ? (int)$psCategoryId : 'NULL';
+            Db::getInstance()->execute(
+                'UPDATE `' . _DB_PREFIX_ . 'mybike_category_map`
+                 SET `ps_id_category` = ' . $psId . ', `date_upd` = NOW()
+                 WHERE `mybike_category_id` = ' . $mybikeCategoryId
+            );
+            $saved++;
+        }
+        $this->confirmations[] = $this->l('Susiejimas išsaugotas: ') . $saved . ' kategorijų.';
+    }
+
+    private function runApiSyncFull()
+    {
+        $apiKey = Configuration::get('MYBIKE_API_KEY');
+        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
+
+        set_time_limit(900);
+        $config = [
+            'only_in_stock' => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
+            'enabled_ids'   => MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds(),
+        ];
+        $logger = new MyBikeLogger(MYBIKE_API_SYNC_LOG);
+        $api    = new MyBikeApiClient($apiKey);
+
+        try {
+            $pdo  = new PDO(
+                'mysql:host=' . _DB_SERVER_ . ';dbname=' . _DB_NAME_ . ';charset=utf8mb4',
+                _DB_USER_, _DB_PASSWD_,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            $sync   = new MyBikeApiSync($api, $logger, $pdo, $config);
+            unset($config);
+            $result = $sync->runFull();
+
+            $this->setConfig('MYBIKE_LAST_API_SYNC_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_API_SYNC_COUNT',    (string)$result['count']);
+            $this->setConfig('MYBIKE_LAST_API_SYNC_DURATION', (string)$result['duration']);
+            $this->setConfig('MYBIKE_LAST_API_SYNC_STATUS',   'ok:full');
+            $_SESSION['mybike_success'] = 'API sync (full) atliktas: ' . $result['count'] . ' produktų, '
+                . $result['details_fetched'] . ' detail calls, ' . $result['duration'] . 's';
+        } catch (Exception $e) {
+            $logger->error($e->getMessage());
+            $this->setConfig('MYBIKE_LAST_API_SYNC_STATUS', 'error: ' . $e->getMessage());
+            $_SESSION['mybike_error'] = $e->getMessage();
+        }
+        Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
+    }
+
+    private function runApiSyncStock()
+    {
+        $apiKey = Configuration::get('MYBIKE_API_KEY');
+        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
+
+        set_time_limit(300);
+        $config = [
+            'only_in_stock' => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
+            'enabled_ids'   => MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds(),
+        ];
+        $logger = new MyBikeLogger(MYBIKE_API_SYNC_LOG);
+        $api    = new MyBikeApiClient($apiKey);
+
+        try {
+            $pdo  = new PDO(
+                'mysql:host=' . _DB_SERVER_ . ';dbname=' . _DB_NAME_ . ';charset=utf8mb4',
+                _DB_USER_, _DB_PASSWD_,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            $sync   = new MyBikeApiSync($api, $logger, $pdo, $config);
+            unset($config);
+            $result = $sync->runStockOnly();
+
+            $this->setConfig('MYBIKE_LAST_API_SYNC_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_API_SYNC_COUNT',    (string)$result['count']);
+            $this->setConfig('MYBIKE_LAST_API_SYNC_DURATION', (string)$result['duration']);
+            $this->setConfig('MYBIKE_LAST_API_SYNC_STATUS',   'ok:stock');
+            $_SESSION['mybike_success'] = 'API sync (stock) atliktas: ' . $result['count'] . ' produktų, ' . $result['duration'] . 's';
+        } catch (Exception $e) {
+            $logger->error($e->getMessage());
+            $this->setConfig('MYBIKE_LAST_API_SYNC_STATUS', 'error: ' . $e->getMessage());
+            $_SESSION['mybike_error'] = $e->getMessage();
+        }
+        Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
+    }
+
+    private function runPsImport()
+    {
+        set_time_limit(1800);
+        $logger = new MyBikeLogger(MYBIKE_IMPORT_LOG);
+        $import = new MyBikePsImport($logger);
+
+        try {
+            $result = $import->run();
+            $this->setConfig('MYBIKE_LAST_IMPORT_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_IMPORT_IMPORTED',  (string)$result['imported']);
+            $this->setConfig('MYBIKE_LAST_IMPORT_UPDATED',   (string)$result['updated']);
+            $this->setConfig('MYBIKE_LAST_IMPORT_SKIPPED',   (string)$result['skipped']);
+            $this->setConfig('MYBIKE_LAST_IMPORT_DURATION',  (string)$result['duration']);
+            $this->setConfig('MYBIKE_LAST_IMPORT_STATUS',    'ok');
+
+            $msg = 'PS importas atliktas: nauji=' . $result['imported']
+                . ' atnaujinta=' . $result['updated']
+                . ' praleista=' . $result['skipped']
+                . ' nuotraukos=' . ($result['images'] ?? 0)
+                . ' ' . $result['duration'] . 's';
+            if (!empty($result['warnings'])) {
+                $msg .= ' | Įspėjimai: ' . implode('; ', $result['warnings']);
+            }
+            $_SESSION['mybike_success'] = $msg;
+        } catch (Exception $e) {
+            $logger->error($e->getMessage());
+            $this->setConfig('MYBIKE_LAST_IMPORT_STATUS', 'error: ' . $e->getMessage());
+            $_SESSION['mybike_error'] = $e->getMessage();
+        }
+        Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
+    }
+
+    private function clearStaging()
+    {
+        Db::getInstance()->execute('DELETE FROM `' . _DB_PREFIX_ . 'mybike_product`');
+        $this->confirmations[] = $this->l('Staging lentelė išvalyta.');
+    }
+
+    // -------------------------------------------------------------------
+    // Data helpers
+    // -------------------------------------------------------------------
+
+    private function getTaxRulesGroups(): array
+    {
+        return Db::getInstance()->executeS(
+            'SELECT `id_tax_rules_group`, `name`
+             FROM `' . _DB_PREFIX_ . 'tax_rules_group`
+             WHERE `active` = 1
+             ORDER BY `name`'
+        );
+    }
+
+    private function getCategoryMapGrouped(): array
+    {
+        $rows = Db::getInstance()->executeS(
+            'SELECT `mybike_category_id`, `mybike_section`, `mybike_category`,
+                    `mybike_product_count`, `ps_id_category`
+             FROM `' . _DB_PREFIX_ . 'mybike_category_map`
+             ORDER BY `mybike_section`, `mybike_category`'
+        );
+        $grouped = [];
+        foreach ($rows as $row) {
+            $grouped[$row['mybike_section']][] = $row;
+        }
+        return $grouped;
+    }
+
+    private function isCategoryMapEmpty(): bool
+    {
+        return !(bool)Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'mybike_category_map`'
+        );
+    }
+
+    private function getPsCategories(): array
+    {
+        $idLang = (int)Configuration::get('PS_LANG_DEFAULT');
+        return Db::getInstance()->executeS(
+            'SELECT c.`id_category`, cl.`name`
+             FROM `' . _DB_PREFIX_ . 'category` c
+             JOIN `' . _DB_PREFIX_ . 'category_lang` cl
+               ON c.`id_category` = cl.`id_category` AND cl.`id_lang` = ' . $idLang . '
+             WHERE c.`active` = 1 AND c.`id_category` > 2
+             ORDER BY cl.`name`'
+        );
+    }
+
+    private function getStagingCount(): int
+    {
+        return (int)Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'mybike_product`'
+        );
+    }
+
+    private function lastApiSyncData(): array
+    {
+        return [
+            'run'      => Configuration::get('MYBIKE_LAST_API_SYNC_RUN')      ?: '—',
+            'count'    => Configuration::get('MYBIKE_LAST_API_SYNC_COUNT')    ?: '—',
+            'duration' => Configuration::get('MYBIKE_LAST_API_SYNC_DURATION') ?: '—',
+            'status'   => Configuration::get('MYBIKE_LAST_API_SYNC_STATUS')   ?: '—',
+        ];
+    }
+
+    private function lastImportData(): array
+    {
+        return [
+            'run'      => Configuration::get('MYBIKE_LAST_IMPORT_RUN')      ?: '—',
+            'imported' => Configuration::get('MYBIKE_LAST_IMPORT_IMPORTED') ?: '—',
+            'updated'  => Configuration::get('MYBIKE_LAST_IMPORT_UPDATED')  ?: '—',
+            'skipped'  => Configuration::get('MYBIKE_LAST_IMPORT_SKIPPED')  ?: '—',
+            'duration' => Configuration::get('MYBIKE_LAST_IMPORT_DURATION') ?: '—',
+            'status'   => Configuration::get('MYBIKE_LAST_IMPORT_STATUS')   ?: '—',
+        ];
+    }
+
+    private function lastRunData($type): array
     {
         return [
             'run'      => Configuration::get('MYBIKE_LAST_' . $type . '_RUN')      ?: '—',
@@ -221,19 +477,30 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         ];
     }
 
-    private function fileInfo($path)
+    private function setConfig($name, $value)
+    {
+        try {
+            $pdo   = new PDO('mysql:host=' . _DB_SERVER_ . ';dbname=' . _DB_NAME_ . ';charset=utf8mb4', _DB_USER_, _DB_PASSWD_);
+            $table = _DB_PREFIX_ . 'configuration';
+            $count = $pdo->prepare('SELECT COUNT(*) FROM `' . $table . '` WHERE `name` = ?');
+            $count->execute([$name]);
+            if ($count->fetchColumn()) {
+                $pdo->prepare('UPDATE `' . $table . '` SET `value` = ?, `date_upd` = NOW() WHERE `name` = ?')->execute([$value, $name]);
+            } else {
+                $pdo->prepare('INSERT INTO `' . $table . '` (`name`,`value`,`date_add`,`date_upd`) VALUES (?,?,NOW(),NOW())')->execute([$name, $value]);
+            }
+        } catch (Exception $e) {
+            // non-fatal
+        }
+    }
+
+    private function fileInfo($path): array
     {
         if (!file_exists($path)) {
             return ['exists' => false, 'size' => '—', 'modified' => '—'];
         }
         $bytes = filesize($path);
-        $size  = $bytes >= 1048576
-            ? round($bytes / 1048576, 1) . ' MB'
-            : round($bytes / 1024, 1) . ' KB';
-        return [
-            'exists'   => true,
-            'size'     => $size,
-            'modified' => date('Y-m-d H:i:s', filemtime($path)),
-        ];
+        $size  = $bytes >= 1048576 ? round($bytes / 1048576, 1) . ' MB' : round($bytes / 1024, 1) . ' KB';
+        return ['exists' => true, 'size' => $size, 'modified' => date('Y-m-d H:i:s', filemtime($path))];
     }
 }

@@ -150,6 +150,208 @@
     </div>
   </form>
 
+  {* ------------------------------------------------------------------ *}
+  {* v2: IMPORTO KONFIGŪRACIJA *}
+  {* ------------------------------------------------------------------ *}
+  <h4 style="margin-top:32px">v2 — Importo kainodara</h4>
+  <form method="post" action="{$action_url}">
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;max-width:780px">
+      <div class="form-group" style="margin:0">
+        <label>Kainos laukas</label>
+        <select name="import_price_key" class="form-control" style="width:160px">
+          <option value="price"      {if $import_price_key eq 'price'}selected{/if}>price (dilerio)</option>
+          <option value="base_price" {if $import_price_key eq 'base_price'}selected{/if}>base_price (MSRP)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Koeficientas</label>
+        <input type="text" name="import_coefficient" class="form-control" style="width:100px"
+               value="{$import_coefficient|escape:'html'}">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label style="display:block">Su PVM?</label>
+        <label style="font-weight:normal;display:flex;align-items:center;gap:6px;margin-top:6px">
+          <input type="checkbox" name="import_with_vat" value="1" {if $import_with_vat}checked{/if}>
+          API kaina su PVM
+        </label>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>PVM grupė (PS)</label>
+        <select name="import_tax_rules_id" class="form-control" style="width:200px">
+          <option value="0">— nėra —</option>
+          {foreach from=$tax_rules_groups item=trg}
+            <option value="{$trg.id_tax_rules_group|intval}"
+              {if $import_tax_rules_id eq $trg.id_tax_rules_group}selected{/if}>
+              {$trg.name|escape:'html'}
+            </option>
+          {/foreach}
+        </select>
+      </div>
+      <div style="margin:0">
+        <button type="submit" name="save_import_config" class="btn btn-success">
+          <i class="icon-save"></i> Išsaugoti
+        </button>
+      </div>
+    </div>
+    <p class="help-block" style="margin-top:8px">
+      PS kaina = kainos_laukas × koeficientas {ldelim}÷ (1 + PVM%) jei su PVM{rdelim}.
+      <code>wholesale_price</code> = kitas kainos laukas, be koeficiento.
+    </p>
+  </form>
+
+  {* ------------------------------------------------------------------ *}
+  {* v2: KATEGORIJŲ SUSIEJIMAS *}
+  {* ------------------------------------------------------------------ *}
+  <h4 style="margin-top:32px">v2 — Kategorijų susiejimas (MyBike → PS)</h4>
+  <p class="help-block">
+    Susiekite MyBike kategorijas su PS kategorijomis. Jei nesusieta — prekė importuojama be kategorijos.
+    Pirmiausia paspauskite „Atnaujinti sąrašą", kad užpildytumėte lentelę iš kategorijų filtro.
+  </p>
+  <form method="post" action="{$action_url}" style="margin-bottom:8px">
+    <button type="submit" name="refresh_category_map" class="btn btn-default btn-sm">
+      <i class="icon-refresh"></i> Atnaujinti sąrašą iš kategorijų filtro
+    </button>
+  </form>
+
+  {if $category_map_empty}
+    <p class="alert alert-warning">Susiejimo sąrašas tuščias. Pirmiausia užpildykite kategorijų filtrą (žemiau), tada spauskite „Atnaujinti sąrašą".</p>
+  {else}
+    <form method="post" action="{$action_url}">
+      {foreach from=$category_map_grouped key=section item=cats}
+        <fieldset style="margin-bottom:16px;border:1px solid #ddd;padding:10px 14px;border-radius:4px">
+          <legend style="font-weight:bold;font-size:13px;width:auto;padding:0 6px">{$section|escape:'html'}</legend>
+          <table class="table table-condensed" style="margin:0">
+            <thead>
+              <tr>
+                <th style="width:40%">MyBike kategorija</th>
+                <th style="width:10%">Prekių</th>
+                <th>PS kategorija</th>
+              </tr>
+            </thead>
+            <tbody>
+              {foreach from=$cats item=cat}
+                <tr>
+                  <td>{$cat.mybike_category|escape:'html'}</td>
+                  <td class="text-muted">{$cat.mybike_product_count|intval}</td>
+                  <td>
+                    <select name="category_map[{$cat.mybike_category_id|intval}]"
+                            class="form-control input-sm" style="max-width:320px">
+                      <option value="">— nesusieta —</option>
+                      {foreach from=$ps_categories item=pscat}
+                        <option value="{$pscat.id_category|intval}"
+                          {if $cat.ps_id_category eq $pscat.id_category}selected{/if}>
+                          {$pscat.name|escape:'html'}
+                        </option>
+                      {/foreach}
+                    </select>
+                  </td>
+                </tr>
+              {/foreach}
+            </tbody>
+          </table>
+        </fieldset>
+      {/foreach}
+      <button type="submit" name="save_category_map" class="btn btn-success">
+        <i class="icon-save"></i> Išsaugoti susiejimą
+      </button>
+    </form>
+  {/if}
+
+  {* ------------------------------------------------------------------ *}
+  {* v2: API SINCHRONIZACIJA *}
+  {* ------------------------------------------------------------------ *}
+  <h4 style="margin-top:32px">v2 — API sinchronizacija (API → staging DB)</h4>
+  <p class="help-block">Parsiunčia produktus iš MyBike API ir išsaugo lentelėje <code>ps_mybike_product</code>.</p>
+  <table class="table" style="max-width:860px">
+    <thead>
+      <tr><th>Režimas</th><th>Paskutinis</th><th>Prekių</th><th>Trukmė</th><th>Statusas</th><th>Cron URL</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Full</strong> (su detail)</td>
+        <td>{$last_api_sync.run}</td>
+        <td>{$last_api_sync.count}</td>
+        <td>{if $last_api_sync.duration neq '—'}{$last_api_sync.duration}s{else}—{/if}</td>
+        <td>
+          {if $last_api_sync.status|substr:0:2 eq 'ok'}
+            <span class="label label-success">OK</span>
+          {elseif $last_api_sync.status neq '—'}
+            <span class="label label-danger" title="{$last_api_sync.status|escape:'html'}">Klaida</span>
+          {else}—{/if}
+        </td>
+        <td><input type="text" class="form-control input-xs" style="width:280px;font-size:11px"
+                   value="{$cron_api_sync_full_url|escape:'html'}" readonly onclick="this.select()"></td>
+        <td>
+          <form method="post" action="{$action_url}">
+            <button type="submit" name="run_api_sync_full" class="btn btn-primary btn-sm"
+                    onclick="return confirm('Paleisti API full sync? Gali užtrukti kelias minutes.')">
+              <i class="icon-play"></i> Paleisti
+            </button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Stock</strong> (tik atsargos)</td>
+        <td colspan="3" class="text-muted" style="font-size:12px">Tas pats laikas kaip full</td>
+        <td>—</td>
+        <td><input type="text" class="form-control input-xs" style="width:280px;font-size:11px"
+                   value="{$cron_api_sync_stock_url|escape:'html'}" readonly onclick="this.select()"></td>
+        <td>
+          <form method="post" action="{$action_url}">
+            <button type="submit" name="run_api_sync_stock" class="btn btn-default btn-sm">
+              <i class="icon-play"></i> Paleisti
+            </button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="help-block">Staging lentelėje šiuo metu: <strong>{$staging_count|intval}</strong> įrašų.
+    <form method="post" action="{$action_url}" style="display:inline;margin-left:12px">
+      <button type="submit" name="clear_staging" class="btn btn-danger btn-xs"
+              onclick="return confirm('Išvalyti staging lentelę? Visi API duomenys bus ištrinti ir PS susiejimai (ps_id_product) nebus matomi iki kito importo.')">
+        <i class="icon-trash"></i> Išvalyti staging
+      </button>
+    </form>
+  </p>
+
+  {* ------------------------------------------------------------------ *}
+  {* v2: PS IMPORTAS *}
+  {* ------------------------------------------------------------------ *}
+  <h4 style="margin-top:32px">v2 — PS importas (staging → PrestaShop)</h4>
+  <p class="help-block">Sukuria / atnaujina PS produktus, kombinacijas, atsargas ir nuotraukas iš staging lentelės.</p>
+  <table class="table" style="max-width:860px">
+    <thead>
+      <tr><th>Paskutinis</th><th>Nauji</th><th>Atnaujinta</th><th>Praleista</th><th>Trukmė</th><th>Statusas</th><th>Cron URL</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{$last_import.run}</td>
+        <td>{$last_import.imported}</td>
+        <td>{$last_import.updated}</td>
+        <td>{$last_import.skipped}</td>
+        <td>{if $last_import.duration neq '—'}{$last_import.duration}s{else}—{/if}</td>
+        <td>
+          {if $last_import.status eq 'ok'}
+            <span class="label label-success">OK</span>
+          {elseif $last_import.status neq '—'}
+            <span class="label label-danger" title="{$last_import.status|escape:'html'}">Klaida</span>
+          {else}—{/if}
+        </td>
+        <td><input type="text" class="form-control input-xs" style="width:280px;font-size:11px"
+                   value="{$cron_ps_import_url|escape:'html'}" readonly onclick="this.select()"></td>
+        <td>
+          <form method="post" action="{$action_url}">
+            <button type="submit" name="run_ps_import" class="btn btn-primary btn-sm"
+                    onclick="return confirm('Paleisti PS importą? Gali užtrukti ilgai (iki 30 min 28k prekių).')">
+              <i class="icon-play"></i> Importuoti dabar
+            </button>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
   <h4 style="margin-top:24px">XML failai</h4>
   <table class="table" style="max-width:900px">
     <thead>
