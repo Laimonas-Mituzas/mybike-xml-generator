@@ -11,8 +11,9 @@ class MyBikePsImport
     private $priceCalc;
     private $langs;
     private $defaultLangId;
-    private $categoryCache = [];  // mybike_category_id → ps_id_category (0 = unmapped)
-    private $stats = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'warnings' => []];
+    private $categoryCache  = [];  // mybike_category_id → ps_id_category (0 = unmapped)
+    private $newProductMeta = [];  // id_product → representative row (for image sync)
+    private $stats = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'images' => 0, 'warnings' => []];
 
     const BIKE_SECTIONS  = ['Bikes', 'E-Bikes'];
     const PARTS_SECTIONS = ['Parts', 'Accessories'];
@@ -51,11 +52,14 @@ class MyBikePsImport
             $this->importSection($section);
         }
 
+        $this->syncImages();
+
         $duration = (int)round(microtime(true) - $start);
         $this->logger->info(
             'PS import done: imported=' . $this->stats['imported']
             . ' updated=' . $this->stats['updated']
             . ' skipped=' . $this->stats['skipped']
+            . ' images=' . $this->stats['images']
             . ' ' . $duration . 's'
         );
 
@@ -166,6 +170,10 @@ class MyBikePsImport
             return;
         }
 
+        if ($existingProductId === 0) {
+            $this->newProductMeta[$idProduct] = $rep;
+        }
+
         // Update ps_id_product for all rows in group
         $mybike_ids = array_column($rows, 'mybike_id');
         $this->updateStagingProductId($mybike_ids, $idProduct);
@@ -197,6 +205,10 @@ class MyBikePsImport
         if ($idProduct <= 0) {
             $this->stats['skipped']++;
             return;
+        }
+
+        if ($existingProductId === 0) {
+            $this->newProductMeta[$idProduct] = $row;
         }
 
         StockAvailable::setQuantity($idProduct, 0, (int)$row['avail_quantity']);
@@ -432,6 +444,92 @@ class MyBikePsImport
             ['ps_id_product_attr' => $idAttr],
             '`mybike_id` = ' . $mybikeId
         );
+    }
+
+    // -------------------------------------------------------------------
+    // IMAGE SYNC (new products only)
+    // -------------------------------------------------------------------
+
+    private function syncImages(): void
+    {
+        if (empty($this->newProductMeta)) {
+            return;
+        }
+
+        $this->logger->info('Image sync: ' . count($this->newProductMeta) . ' new products');
+
+        foreach ($this->newProductMeta as $idProduct => $repRow) {
+            $images = json_decode((string)($repRow['images'] ?? ''), true);
+            if (empty($images) || !is_array($images)) {
+                continue;
+            }
+
+            $position = 0;
+            foreach ($images as $img) {
+                $url = (string)($img['url'] ?? '');
+                if ($url === '') {
+                    continue;
+                }
+
+                $position++;
+                $tmpFile = _PS_TMP_IMG_DIR_ . 'mybike_' . $idProduct . '_' . $position . '.jpg';
+
+                if (!$this->downloadImage($url, $tmpFile)) {
+                    $this->logger->error('Image download failed: ' . $url . ' (product ' . $idProduct . ')');
+                    continue;
+                }
+
+                $image             = new Image();
+                $image->id_product = $idProduct;
+                $image->position   = $position;
+                $image->cover      = ($position === 1) ? 1 : 0;
+
+                if (!$image->add()) {
+                    @unlink($tmpFile);
+                    $this->logger->error('Image::add() failed for product ' . $idProduct);
+                    continue;
+                }
+
+                // Create directory and move file to final location
+                $imgBasePath = _PS_PROD_IMG_DIR_ . $image->getImgPath();
+                $imgDir      = dirname($imgBasePath);
+                if (!is_dir($imgDir)) {
+                    mkdir($imgDir, 0755, true);
+                }
+
+                $finalPath = $imgBasePath . '.jpg';
+                rename($tmpFile, $finalPath);
+
+                // Generate thumbnails for all product image types
+                foreach (ImageType::getImagesTypes('products') as $imageType) {
+                    $dst = $imgBasePath . '-' . $imageType['name'] . '.jpg';
+                    ImageManager::resize($finalPath, $dst, (int)$imageType['width'], (int)$imageType['height']);
+                }
+
+                $this->stats['images']++;
+            }
+        }
+
+        $this->logger->info('Image sync done: ' . $this->stats['images'] . ' images created');
+    }
+
+    private function downloadImage(string $url, string $dest): bool
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+        $data  = curl_exec($ch);
+        $errno = curl_errno($ch);
+        curl_close($ch);
+
+        if ($errno || !$data) {
+            return false;
+        }
+
+        return file_put_contents($dest, $data) !== false;
     }
 
     // -------------------------------------------------------------------
