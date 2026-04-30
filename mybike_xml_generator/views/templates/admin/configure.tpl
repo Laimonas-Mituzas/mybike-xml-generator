@@ -415,9 +415,33 @@
           {else}—{/if}
         </td>
         <td>
+          <input type="text" class="form-control input-xs" style="width:220px;font-size:11px;margin-bottom:4px"
+                 value="{$cron_full_url|escape:'html'}" readonly onclick="this.select()">
           <form method="post" action="{$action_url}">
-            <button type="submit" name="run_full" class="btn btn-primary btn-sm"
-                    onclick="return confirm('Generuoti products_full.xml? Gali užtrukti kelias minutes.')">
+            <button type="submit" name="run_full" class="btn btn-primary btn-sm">
+              <i class="icon-play"></i> Generuoti dabar
+            </button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <td><strong>products_combinations.xml</strong></td>
+        <td>{$last_combinations.run}</td>
+        <td>{$combinations_xml.size}</td>
+        <td>{$last_combinations.count}</td>
+        <td>{if $last_combinations.duration neq '—'}{$last_combinations.duration}s{else}—{/if}</td>
+        <td>
+          {if $last_combinations.status eq 'ok'}
+            <span class="label label-success">OK</span>
+          {elseif $last_combinations.status neq '—'}
+            <span class="label label-danger" title="{$last_combinations.status|escape:'html'}">Klaida</span>
+          {else}—{/if}
+        </td>
+        <td>
+          <input type="text" class="form-control input-xs" style="width:220px;font-size:11px;margin-bottom:4px"
+                 value="{$cron_combinations_url|escape:'html'}" readonly onclick="this.select()">
+          <form method="post" action="{$action_url}">
+            <button type="submit" name="run_combinations" class="btn btn-primary btn-sm">
               <i class="icon-play"></i> Generuoti dabar
             </button>
           </form>
@@ -437,6 +461,8 @@
           {else}—{/if}
         </td>
         <td>
+          <input type="text" class="form-control input-xs" style="width:220px;font-size:11px;margin-bottom:4px"
+                 value="{$cron_stock_url|escape:'html'}" readonly onclick="this.select()">
           <form method="post" action="{$action_url}">
             <button type="submit" name="run_stock" class="btn btn-primary btn-sm">
               <i class="icon-play"></i> Generuoti dabar

@@ -1,4 +1,8 @@
 <?php
+/**
+ * Generates products_full.xml from ps_mybike_product staging table.
+ * Run after cron_api_sync.php (full mode).
+ */
 $psRoot = dirname(__FILE__, 3);
 if (!file_exists($psRoot . '/config/config.inc.php')) {
     http_response_code(500);
@@ -8,13 +12,9 @@ require_once $psRoot . '/config/config.inc.php';
 
 require_once dirname(__FILE__) . '/config/config.php';
 require_once dirname(__FILE__) . '/classes/MyBikeLogger.php';
-require_once dirname(__FILE__) . '/classes/MyBikeApiClient.php';
-require_once dirname(__FILE__) . '/classes/MyBikeFullXmlBuilder.php';
-require_once dirname(__FILE__) . '/classes/MyBikeStockXmlBuilder.php';
-require_once dirname(__FILE__) . '/classes/MyBikeCategoryManager.php';
-require_once dirname(__FILE__) . '/classes/MyBikeFullSync.php';
+require_once dirname(__FILE__) . '/classes/MyBikeFullDbXml.php';
 
-$token = isset($_GET['token']) ? $_GET['token'] : '';
+$token      = isset($_GET['token']) ? $_GET['token'] : '';
 $savedToken = Configuration::get('MYBIKE_CRON_TOKEN');
 
 if (!$savedToken || !hash_equals($savedToken, $token)) {
@@ -22,25 +22,22 @@ if (!$savedToken || !hash_equals($savedToken, $token)) {
     exit('Forbidden');
 }
 
-set_time_limit(600);
+set_time_limit(300);
 
-$apiKey = Configuration::get('MYBIKE_API_KEY');
-$config = [
-    'only_in_stock' => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
-    'enabled_ids'   => MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds(),
-];
-$logger = new MyBikeLogger(MYBIKE_FULL_LOG);
-$api    = new MyBikeApiClient($apiKey);
-$sync   = new MyBikeFullSync($api, $logger, $config);
-unset($config);
+$logger  = new MyBikeLogger(MYBIKE_XML_LOG);
+$builder = new MyBikeFullDbXml(MYBIKE_FULL_XML, $logger);
 
 try {
-    $result = $sync->run();
+    $start  = microtime(true);
+    $count  = $builder->build();
+    $duration = (int)round(microtime(true) - $start);
+
     mybike_set_config('MYBIKE_LAST_FULL_RUN',      date('Y-m-d H:i:s'));
-    mybike_set_config('MYBIKE_LAST_FULL_COUNT',    (string)$result['count']);
-    mybike_set_config('MYBIKE_LAST_FULL_DURATION', (string)$result['duration']);
+    mybike_set_config('MYBIKE_LAST_FULL_COUNT',    (string)$count);
+    mybike_set_config('MYBIKE_LAST_FULL_DURATION', (string)$duration);
     mybike_set_config('MYBIKE_LAST_FULL_STATUS',   'ok');
-    echo 'OK: ' . $result['count'] . ' products, ' . $result['duration'] . 's';
+
+    echo 'OK: ' . $count . ' products, ' . $duration . 's';
 } catch (Exception $e) {
     $logger->error($e->getMessage());
     mybike_set_config('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
@@ -63,6 +60,6 @@ function mybike_set_config($name, $value)
                 ->execute([$name, $value]);
         }
     } catch (Exception $e) {
-        // DB write failed — sync result was OK, only status not recorded
+        // non-fatal
     }
 }

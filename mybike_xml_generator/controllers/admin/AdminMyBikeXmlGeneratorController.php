@@ -6,11 +6,10 @@ if (!defined('_PS_VERSION_')) {
 require_once dirname(__FILE__) . '/../../config/config.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeLogger.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeApiClient.php';
-require_once dirname(__FILE__) . '/../../classes/MyBikeFullXmlBuilder.php';
-require_once dirname(__FILE__) . '/../../classes/MyBikeStockXmlBuilder.php';
-require_once dirname(__FILE__) . '/../../classes/MyBikeFullSync.php';
-require_once dirname(__FILE__) . '/../../classes/MyBikeStockSync.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeCategoryManager.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeFullDbXml.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeStockDbXml.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeCombinationsXml.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikePriceCalc.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeManufacturerMap.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeAttributeMap.php';
@@ -32,10 +31,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->saveConfig();
         } elseif (Tools::isSubmit('regen_token')) {
             $this->regenToken();
-        } elseif (Tools::isSubmit('run_full')) {
-            $this->runFullSync();
-        } elseif (Tools::isSubmit('run_stock')) {
-            $this->runStockSync();
         } elseif (Tools::isSubmit('refresh_categories')) {
             $this->refreshCategories();
         } elseif (Tools::isSubmit('save_categories')) {
@@ -56,6 +51,12 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->clearStaging();
         } elseif (Tools::isSubmit('run_ps_import_test')) {
             $this->runPsImportTest();
+        } elseif (Tools::isSubmit('run_full')) {
+            $this->runFullXml();
+        } elseif (Tools::isSubmit('run_stock')) {
+            $this->runStockXml();
+        } elseif (Tools::isSubmit('run_combinations')) {
+            $this->runCombinationsXml();
         }
     }
 
@@ -76,14 +77,16 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         $baseUrl = rtrim(Tools::getShopDomainSsl(true, true), '/') . '/modules/mybike_xml_generator';
 
         $this->context->smarty->assign([
-            // v1 — existing
             'api_key'                => Configuration::get('MYBIKE_API_KEY'),
             'cron_full_url'          => $baseUrl . '/cron_full.php?token=' . $token,
             'cron_stock_url'         => $baseUrl . '/cron_stock.php?token=' . $token,
+            'cron_combinations_url'  => $baseUrl . '/cron_combinations.php?token=' . $token,
             'full_xml'               => $this->fileInfo(MYBIKE_FULL_XML),
             'stock_xml'              => $this->fileInfo(MYBIKE_STOCK_XML),
+            'combinations_xml'       => $this->fileInfo(MYBIKE_COMBINATIONS_XML),
             'last_full'              => $this->lastRunData('FULL'),
             'last_stock'             => $this->lastRunData('STOCK'),
+            'last_combinations'      => $this->lastRunData('COMB'),
             'action_url'             => $this->context->link->getAdminLink('AdminMyBikeXmlGenerator'),
             'confirmations'          => $this->confirmations,
             'errors'                 => $this->errors,
@@ -139,27 +142,20 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         $this->confirmations[] = $this->l('Cron token sugeneruotas iš naujo.');
     }
 
-    private function runFullSync()
+    private function runFullXml()
     {
-        $apiKey = Configuration::get('MYBIKE_API_KEY');
-        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
-
-        set_time_limit(600);
-        $config = [
-            'only_in_stock' => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
-            'enabled_ids'   => MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds(),
-        ];
-        $logger = new MyBikeLogger(MYBIKE_FULL_LOG);
-        $sync   = new MyBikeFullSync(new MyBikeApiClient($apiKey), $logger, $config);
-        unset($config);
-
+        set_time_limit(300);
+        $logger  = new MyBikeLogger(MYBIKE_XML_LOG);
+        $builder = new MyBikeFullDbXml(MYBIKE_FULL_XML, $logger);
         try {
-            $result = $sync->run();
+            $start = microtime(true);
+            $count = $builder->build();
+            $dur   = (int)round(microtime(true) - $start);
             $this->setConfig('MYBIKE_LAST_FULL_RUN',      date('Y-m-d H:i:s'));
-            $this->setConfig('MYBIKE_LAST_FULL_COUNT',    (string)$result['count']);
-            $this->setConfig('MYBIKE_LAST_FULL_DURATION', (string)$result['duration']);
+            $this->setConfig('MYBIKE_LAST_FULL_COUNT',    (string)$count);
+            $this->setConfig('MYBIKE_LAST_FULL_DURATION', (string)$dur);
             $this->setConfig('MYBIKE_LAST_FULL_STATUS',   'ok');
-            $_SESSION['mybike_success'] = 'Full sync atliktas: ' . $result['count'] . ' produktų, ' . $result['duration'] . 's';
+            $_SESSION['mybike_success'] = 'products_full.xml sugeneruotas: ' . $count . ' produktų, ' . $dur . 's';
         } catch (Exception $e) {
             $logger->error($e->getMessage());
             $this->setConfig('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
@@ -168,30 +164,45 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
     }
 
-    private function runStockSync()
+    private function runStockXml()
     {
-        $apiKey = Configuration::get('MYBIKE_API_KEY');
-        if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
-
-        set_time_limit(300);
-        $config = [
-            'only_in_stock' => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
-            'enabled_ids'   => MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds(),
-        ];
-        $logger = new MyBikeLogger(MYBIKE_STOCK_LOG);
-        $sync   = new MyBikeStockSync(new MyBikeApiClient($apiKey), $logger, $config);
-        unset($config);
-
+        set_time_limit(120);
+        $logger  = new MyBikeLogger(MYBIKE_XML_LOG);
+        $builder = new MyBikeStockDbXml(MYBIKE_STOCK_XML, $logger);
         try {
-            $result = $sync->run();
+            $start = microtime(true);
+            $count = $builder->build();
+            $dur   = (int)round(microtime(true) - $start);
             $this->setConfig('MYBIKE_LAST_STOCK_RUN',      date('Y-m-d H:i:s'));
-            $this->setConfig('MYBIKE_LAST_STOCK_COUNT',    (string)$result['count']);
-            $this->setConfig('MYBIKE_LAST_STOCK_DURATION', (string)$result['duration']);
+            $this->setConfig('MYBIKE_LAST_STOCK_COUNT',    (string)$count);
+            $this->setConfig('MYBIKE_LAST_STOCK_DURATION', (string)$dur);
             $this->setConfig('MYBIKE_LAST_STOCK_STATUS',   'ok');
-            $_SESSION['mybike_success'] = 'Stock sync atliktas: ' . $result['count'] . ' produktų, ' . $result['duration'] . 's';
+            $_SESSION['mybike_success'] = 'products_stock.xml sugeneruotas: ' . $count . ' produktų, ' . $dur . 's';
         } catch (Exception $e) {
             $logger->error($e->getMessage());
             $this->setConfig('MYBIKE_LAST_STOCK_STATUS', 'error: ' . $e->getMessage());
+            $_SESSION['mybike_error'] = $e->getMessage();
+        }
+        Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
+    }
+
+    private function runCombinationsXml()
+    {
+        set_time_limit(300);
+        $logger  = new MyBikeLogger(MYBIKE_XML_LOG);
+        $builder = new MyBikeCombinationsXml(MYBIKE_COMBINATIONS_XML, $logger);
+        try {
+            $start = microtime(true);
+            $count = $builder->build();
+            $dur   = (int)round(microtime(true) - $start);
+            $this->setConfig('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_COMB_COUNT',    (string)$count);
+            $this->setConfig('MYBIKE_LAST_COMB_DURATION', (string)$dur);
+            $this->setConfig('MYBIKE_LAST_COMB_STATUS',   'ok');
+            $_SESSION['mybike_success'] = 'products_combinations.xml sugeneruotas: ' . $count . ' produktų, ' . $dur . 's';
+        } catch (Exception $e) {
+            $logger->error($e->getMessage());
+            $this->setConfig('MYBIKE_LAST_COMB_STATUS', 'error: ' . $e->getMessage());
             $_SESSION['mybike_error'] = $e->getMessage();
         }
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
