@@ -454,9 +454,85 @@
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-log">
 
-      <p class="help-block">
-        Log failai rotuojami automatiškai: pasiekus 1 MB, failas pervardijamas į <code>.old</code> ir pradedamas naujas.
-        Rodoma paskutinės 500 eilučių.
+      <h4>Paskutiniai rezultatai</h4>
+      <table class="table table-condensed table-bordered" style="max-width:860px;margin-bottom:24px;font-size:13px">
+        <thead>
+          <tr style="background:#f5f5f5">
+            <th style="width:22%">Veiksmas</th>
+            <th style="width:20%">Laikas</th>
+            <th>Rezultatas</th>
+            <th style="width:9%">Trukmė</th>
+            <th style="width:9%">Statusas</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>API Sync</strong></td>
+            <td class="text-muted">{$last_api_sync.run}</td>
+            <td>{$last_api_sync.count} prekių</td>
+            <td>{if $last_api_sync.duration neq '—'}{$last_api_sync.duration}s{else}—{/if}</td>
+            <td>
+              {if $last_api_sync.status|substr:0:2 eq 'ok'}<span class="label label-success">OK</span>
+              {elseif $last_api_sync.status neq '—'}<span class="label label-danger" title="{$last_api_sync.status|escape:'html'}">Klaida</span>
+              {else}—{/if}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>PS Importas</strong></td>
+            <td class="text-muted">{$last_import.run}</td>
+            <td>
+              {if $last_import.imported neq '—'}
+                <span title="Nauji">&#x2795; {$last_import.imported}</span>
+                &nbsp; <span class="text-muted" title="Atnaujinta">&#x21BB; {$last_import.updated}</span>
+                &nbsp; <span class="text-muted" title="Praleista">&#x23E9; {$last_import.skipped}</span>
+              {else}—{/if}
+            </td>
+            <td>{if $last_import.duration neq '—'}{$last_import.duration}s{else}—{/if}</td>
+            <td>
+              {if $last_import.status eq 'ok'}<span class="label label-success">OK</span>
+              {elseif $last_import.status neq '—'}<span class="label label-danger" title="{$last_import.status|escape:'html'}">Klaida</span>
+              {else}—{/if}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>XML Full</strong></td>
+            <td class="text-muted">{$last_full.run}</td>
+            <td>{$last_full.count} produktų</td>
+            <td>{if $last_full.duration neq '—'}{$last_full.duration}s{else}—{/if}</td>
+            <td>
+              {if $last_full.status eq 'ok'}<span class="label label-success">OK</span>
+              {elseif $last_full.status neq '—'}<span class="label label-danger" title="{$last_full.status|escape:'html'}">Klaida</span>
+              {else}—{/if}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>XML Combinations</strong></td>
+            <td class="text-muted">{$last_combinations.run}</td>
+            <td>{$last_combinations.count} grupių</td>
+            <td>{if $last_combinations.duration neq '—'}{$last_combinations.duration}s{else}—{/if}</td>
+            <td>
+              {if $last_combinations.status eq 'ok'}<span class="label label-success">OK</span>
+              {elseif $last_combinations.status neq '—'}<span class="label label-danger" title="{$last_combinations.status|escape:'html'}">Klaida</span>
+              {else}—{/if}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>XML Stock</strong></td>
+            <td class="text-muted">{$last_stock.run}</td>
+            <td>{$last_stock.count} produktų</td>
+            <td>{if $last_stock.duration neq '—'}{$last_stock.duration}s{else}—{/if}</td>
+            <td>
+              {if $last_stock.status eq 'ok'}<span class="label label-success">OK</span>
+              {elseif $last_stock.status neq '—'}<span class="label label-danger" title="{$last_stock.status|escape:'html'}">Klaida</span>
+              {else}—{/if}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>Log failai</h4>
+      <p class="help-block" style="margin-top:-6px">
+        Rotuojami automatiškai pasiekus 1 MB (pervardijamas į <code>.old</code>). Rodomos paskutinės 500 eilučių.
       </p>
 
       {* --- API Sync log --- *}
