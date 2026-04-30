@@ -316,10 +316,14 @@ class MyBikePsImport
         $product->id_manufacturer   = $this->manufacturerMap->getId((string)$repRow['brand']);
         $product->price             = $this->priceCalc->calc($repRow);
         $product->wholesale_price   = $this->priceCalc->wholesale($repRow);
-        $product->active            = 1;
-        $product->condition         = 'new';
-        $product->visibility        = 'both';
-        $product->product_type      = 'standard';  // may be upgraded to 'combinations' by addAttribute()
+        $product->active              = 1;
+        $product->condition           = 'new';
+        $product->visibility          = 'both';
+        $product->id_tax_rules_group  = (int)Configuration::get('MYBIKE_IMPORT_TAX_RULES_ID');
+
+        if ($existingProductId === 0) {
+            $product->product_type = 'standard'; // may be upgraded to 'combinations' by addAttribute()
+        }
 
         if ($categoryId > 0) {
             $product->id_category_default = $categoryId;
@@ -348,7 +352,7 @@ class MyBikePsImport
         // Mark imported_at on first create
         if ($existingProductId === 0) {
             Db::getInstance()->update(
-                _DB_PREFIX_ . 'mybike_product',
+                'mybike_product',
                 ['imported_at' => date('Y-m-d H:i:s')],
                 '`mybike_id` = ' . (int)$repRow['mybike_id']
             );
@@ -431,7 +435,7 @@ class MyBikePsImport
     {
         $ids = implode(',', array_map('intval', $mybike_ids));
         Db::getInstance()->update(
-            _DB_PREFIX_ . 'mybike_product',
+            'mybike_product',
             ['ps_id_product' => $idProduct],
             '`mybike_id` IN (' . $ids . ')'
         );
@@ -440,7 +444,7 @@ class MyBikePsImport
     private function updateStagingAttr(int $mybikeId, int $idAttr): void
     {
         Db::getInstance()->update(
-            _DB_PREFIX_ . 'mybike_product',
+            'mybike_product',
             ['ps_id_product_attr' => $idAttr],
             '`mybike_id` = ' . $mybikeId
         );
