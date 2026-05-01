@@ -23,7 +23,7 @@
     {* ================================================================== *}
     <div class="tab-pane active" id="mbk-tab-settings">
 
-      <h4>API raktas</h4>
+      <h2>API raktas</h2>
       <form method="post" action="{$action_url}">
         <div class="form-group">
           <div class="input-group" style="max-width:520px">
@@ -36,7 +36,7 @@
         </div>
       </form>
 
-      <h4 style="margin-top:24px">Atsargų filtras</h4>
+      <h2 style="margin-top:24px">Atsargų filtras</h2>
       <form method="post" action="{$action_url}">
         <div class="form-group" style="margin-bottom:8px">
           <label class="switch-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:normal">
@@ -55,7 +55,7 @@
         <input type="hidden" name="save_config" value="1">
       </form>
 
-      <h4 style="margin-top:24px">Importo kainodara</h4>
+      <h2 style="margin-top:24px">Importo kainodara</h2>
       <form method="post" action="{$action_url}">
         <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;max-width:780px">
           <div class="form-group" style="margin:0">
@@ -108,7 +108,7 @@
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-categories">
 
-      <h4>XML sinchronizacijos filtras</h4>
+      <h2>XML sinchronizacijos filtras</h2>
       <p class="help-block">Kategorijos įtraukiamos į API sync užklausas (filtruojama serverio pusėje).</p>
       <form method="post" action="{$action_url}">
 
@@ -169,7 +169,7 @@
 
       <hr style="margin:28px 0">
 
-      <h4>Kategorijų susiejimas: MyBike → PS</h4>
+      <h2>Kategorijų susiejimas: MyBike → PS</h2>
       <p class="help-block">
         Susiekite MyBike kategorijas su PS kategorijomis importo metu.
         Jei nesusieta — prekė importuojama be kategorijos.
@@ -227,16 +227,16 @@
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-import">
 
-      <h4>Cron token</h4>
+      <h2>Cron token</h2>
       <p class="help-block">Token naudojamas visuose cron URL'uose žemiau. Regeneravus — visi esami URL nustos veikti.</p>
       <form method="post" action="{$action_url}" style="margin-bottom:24px">
         <button type="submit" name="regen_token" class="btn btn-default btn-sm"
                 onclick="return confirm('Regeneruoti token? Esami cron URL\'ai nustos veikti.')">
-          <i class="icon-refresh"></i> Regeneruoti token
+          <i class="icon-refresh"></i>  Regeneruoti token
         </button>
       </form>
 
-      <h4>Duomenų atsisiuntimas iš API</h4>
+      <h2>Duomenų atsisiuntimas iš API</h2>
       <p class="help-block">Parsiunčia produktus iš MyBike API ir išsaugo lentelėje <code>ps_mybike_product</code>.</p>
       <table class="table" style="max-width:900px">
         <thead>
@@ -294,7 +294,7 @@
 
       <hr style="margin:24px 0">
 
-      <h4>Prekių importas į parduotuvę</h4>
+      <h2>Prekių importas į parduotuvę</h2>
       <p class="help-block">Sukuria / atnaujina PrestaShop produktus, kombinacijas, atsargas ir nuotraukas iš atsisiųstų API duomenų.</p>
       <table class="table" style="max-width:900px">
         <thead>
@@ -330,7 +330,7 @@
 
       <hr style="margin:24px 0">
 
-      <h4>Test importas (1 prekė)</h4>
+      <h2>Test importas (1 prekė)</h2>
       <p class="help-block">
         Importuoja vieną prekę iš atsisiųstų API duomenų (Bikes/E-Bikes — visą spalvos grupę su kombinacijomis).
         Jei ID nenurodytas — naudojamas pirmas.
@@ -393,7 +393,7 @@
                      value="{$cron_full_url|escape:'html'}" readonly onclick="this.select()">
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_full" class="btn btn-primary btn-sm">
-                  <i class="icon-play"></i> Generuoti dabar
+                  <i class="icon-play"></i>  Generuoti dabar
                 </button>
               </form>
             </td>
@@ -416,7 +416,7 @@
                      value="{$cron_combinations_url|escape:'html'}" readonly onclick="this.select()">
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_combinations" class="btn btn-primary btn-sm">
-                  <i class="icon-play"></i> Generuoti dabar
+                  <i class="icon-play"></i>  Generuoti dabar
                 </button>
               </form>
             </td>
@@ -439,7 +439,7 @@
                      value="{$cron_stock_url|escape:'html'}" readonly onclick="this.select()">
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_stock" class="btn btn-primary btn-sm">
-                  <i class="icon-play"></i> Generuoti dabar
+                  <i class="icon-play"></i>  Generuoti dabar
                 </button>
               </form>
             </td>
@@ -454,7 +454,7 @@
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-log">
 
-      <h4>Paskutiniai rezultatai</h4>
+      <h2>Paskutiniai rezultatai</h2>
       <table class="table table-condensed table-bordered" style="max-width:860px;margin-bottom:24px;font-size:13px">
         <thead>
           <tr style="background:#f5f5f5">
@@ -530,7 +530,7 @@
         </tbody>
       </table>
 
-      <h4>Log failai</h4>
+      <h2>Log failai</h2>
       <p class="help-block" style="margin-top:-6px">
         Rotuojami automatiškai pasiekus 1 MB (pervardijamas į <code>.old</code>). Rodomos paskutinės 500 eilučių.
       </p>
@@ -538,7 +538,7 @@
       {* --- API Sync log --- *}
       <div style="margin-bottom:28px">
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
-          <h4 style="margin:0">API Sync</h4>
+          <h2 style="margin:0">API Sync</h2>
           {if $log_api_sync.exists}
             <span class="text-muted" style="font-size:12px">
               {$log_api_sync.size} &nbsp;|&nbsp; {$log_api_sync.modified}
@@ -564,7 +564,7 @@
       {* --- PS Importas log --- *}
       <div style="margin-bottom:28px">
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
-          <h4 style="margin:0">PS Importas</h4>
+          <h2 style="margin:0">PS Importas</h2>
           {if $log_ps_import.exists}
             <span class="text-muted" style="font-size:12px">
               {$log_ps_import.size} &nbsp;|&nbsp; {$log_ps_import.modified}
@@ -590,7 +590,7 @@
       {* --- XML generavimas log --- *}
       <div style="margin-bottom:28px">
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:6px">
-          <h4 style="margin:0">XML generavimas</h4>
+          <h2 style="margin:0">XML generavimas</h2>
           {if $log_xml.exists}
             <span class="text-muted" style="font-size:12px">
               {$log_xml.size} &nbsp;|&nbsp; {$log_xml.modified}
