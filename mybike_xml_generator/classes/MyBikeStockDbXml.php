@@ -37,7 +37,8 @@ class MyBikeStockDbXml
 
         do {
             $rows = Db::getInstance()->executeS(
-                "SELECT `mybike_id`, `price`, `base_price`, `avail_status`,
+                "SELECT `mybike_id`, `standard_item_id`, `manufacturer_id`,
+                        `price`, `base_price`, `avail_status`,
                         `avail_quantity`, `avail_date`, `ps_id_product`, `ps_id_product_attr`
                  FROM `" . _DB_PREFIX_ . "mybike_product`
                  WHERE `avail_status` != 'deleted'
@@ -48,6 +49,8 @@ class MyBikeStockDbXml
             foreach ($rows as $row) {
                 $xw->startElement('product');
                 $xw->writeElement('id',               (string)$row['mybike_id']);
+                $xw->writeElement('standard_item_id', (string)$row['standard_item_id']);
+                $xw->writeElement('manufacturer_id',  (string)$row['manufacturer_id']);
                 $xw->writeElement('price',            (string)$row['price']);
                 $xw->writeElement('base_price',       (string)$row['base_price']);
                 $xw->startElement('availability');
