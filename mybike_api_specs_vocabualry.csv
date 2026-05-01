@@ -1,0 +1,49 @@
+Sepecs api key,EN,LT
+fork,Fork,Šakė
+chain,Chain,Grandinė
+frame,Frame,Rėmas
+gears,Gears,Pavaros
+tyres,Tyres,Padangos
+pedals,Pedals,Pedalai
+saddle,Saddle,Balnas
+wheels,Wheels,Ratai
+headset,Headset,Ausinės
+cassette,Cassette,Kasetė
+seatpost,Seatpost,Balnelio atrama
+shifters,Shifters,Pavarų perjungikliai
+handlebar,Handlebar,Vairas
+modelyear,Modelyear,Modelio metai
+mudguards,Mudguards,Purvasaugiai
+ebike_type,Ebike type,Elektrinio dviračio tipas
+rear_light,Rear light,Galinis žibintas
+front_brake,Front brake,Priekinis stabdys
+front_light,Front light,Priekinis žibintas
+battery_model,Battery model,Baterijos modelis
+charger_model,Charger model,Įkroviklio modelis
+wheelsize_rear,Wheelsize rear,Galinių ratų dydis
+derailleur_rear,Derailleur rear,Galinis pavarų perjungiklis
+drivetrain_type,Drivetrain type,Pavaros tipas
+wheelsize_front,Wheelsize front,Priekinių ratų dydis
+battery_capacity,Battery capacity,Baterijos talpa
+drivetrain_brand,Drivetrain brand,Pavaros prekės ženklas
+engine_model_name,Engine model name,Variklio modelio pavadinimas
+childseat_possible,Childseat possible,Galima vaikiška kėdutė
+primary_rear_brake,Primary rear brake,Pagrindinis galinis stabdys
+secondary_rear_brake,Secondary rear brake,Antrinis galinis stabdys
+registration_required,Registration required,Būtina registracija
+ebike_type_description,Ebike type description,Elektrinio dviračio tipo aprašymas
+riding_posture_description,Riding posture description,Važiavimo pozos aprašymas
+Goemetry,Goemetry,Geometrija
+wheelbase,Wheelbase,Važiuoklės bazė
+head_angle,Head angle,Galvos kampas
+frame_reach,Frame reach,Rėmo aprėptis
+frame_stack,Frame stack,Rėmų krūva
+toptube_length,Top tube length,Viršutinio vamzdžio ilgis
+seat_tube_angle,Seat tube angle,Balnelio vamzdžio kampas
+chainstay_length,Chainstay length,Grandinės ilgis
+head_tube_length,Head tube length,Galvos vamzdžio ilgis
+seat_tube_length,Seat tube length,Balnelio vamzdžio ilgis
+front_fork_length,Front fork length,Priekinės šakės ilgis
+stand_over_height,Stand over height,Stovėti virš aukščio
+bottom_bracket_drop,Bottom bracket drop,Apatinės ašies kritimas
+bottom_bracket_height,Bottom bracket height,Apatinio laikiklio aukštis

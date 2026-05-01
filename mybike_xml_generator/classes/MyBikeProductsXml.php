@@ -48,6 +48,7 @@ class MyBikeProductsXml
         $xwComb->startElement('products');
         $xwComb->writeAttribute('generated', date('c'));
 
+        $vocab     = MyBikeSpecsVocab::loadAll();
         $fullCount = 0;
         $combCount = 0;
 
@@ -67,7 +68,7 @@ class MyBikeProductsXml
                 $variants = $resolved['variants'];
                 $type     = $resolved['type'];
 
-                $this->writeFullProduct($xwFull, $rep);
+                $this->writeFullProduct($xwFull, $rep, $vocab);
                 $fullCount++;
 
                 if ($isBikeSection && $type === 'combinations') {
@@ -165,7 +166,89 @@ class MyBikeProductsXml
         return trim($name);
     }
 
-    private function writeFullProduct(XMLWriter $xw, array $row): void
+    private function specsToString(string $json, array $vocab): string
+    {
+        if ($json === '') {
+            return '';
+        }
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return '';
+        }
+        $parts = [];
+        foreach ($data as $key => $value) {
+            if (!isset($vocab[$key]) || !$vocab[$key]['filterable']) {
+                continue;
+            }
+            if ($value === null || is_array($value) || is_object($value)) {
+                continue;
+            }
+            if (is_bool($value)) {
+                $str = $value ? 'Taip' : 'Ne';
+            } else {
+                $str = trim((string)$value);
+            }
+            if ($str === '') {
+                continue;
+            }
+            $parts[] = $vocab[$key]['label_lt'] . ':' . $str;
+        }
+        return implode('|', $parts);
+    }
+
+    private function specsFullToHtml(string $json, array $vocab): string
+    {
+        if ($json === '') {
+            return '';
+        }
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return '';
+        }
+        $entries = [];
+        foreach ($data as $key => $value) {
+            if ($value === null || is_array($value) || is_object($value)) {
+                continue;
+            }
+            if (is_bool($value)) {
+                $str = $value ? 'Taip' : 'Ne';
+            } else {
+                $str = trim((string)$value);
+            }
+            if ($str === '') {
+                continue;
+            }
+            if (isset($vocab[$key])) {
+                if (!$vocab[$key]['show_full']) {
+                    continue;
+                }
+                $entries[] = [
+                    'label' => $vocab[$key]['label_lt'],
+                    'value' => $str,
+                    'sort'  => $vocab[$key]['sort_order'],
+                ];
+            } else {
+                $entries[] = [
+                    'label' => $key,
+                    'value' => $str,
+                    'sort'  => 9999,
+                ];
+            }
+        }
+        if (empty($entries)) {
+            return '';
+        }
+        usort($entries, static function ($a, $b) { return $a['sort'] <=> $b['sort']; });
+        $html = '<table class="specs-table">';
+        foreach ($entries as $e) {
+            $html .= '<tr><th>' . htmlspecialchars($e['label'], ENT_XML1) . '</th>'
+                   . '<td>' . htmlspecialchars($e['value'], ENT_XML1) . '</td></tr>';
+        }
+        $html .= '</table>';
+        return $html;
+    }
+
+    private function writeFullProduct(XMLWriter $xw, array $row, array $vocab): void
     {
         $xw->startElement('product');
 
@@ -189,15 +272,18 @@ class MyBikeProductsXml
         $xw->writeCdata((string)($row['description'] ?? ''));
         $xw->endElement();
 
-        $xw->startElement('specs');
-        $xw->writeCdata((string)($row['specs'] ?? ''));
-        $xw->endElement();
+        $xw->writeElement('specs', $this->specsToString((string)($row['specs'] ?? ''), $vocab));
 
-        $xw->startElement('availability');
-        $xw->writeElement('status',   (string)$row['avail_status']);
-        $xw->writeElement('quantity', (string)$row['avail_quantity']);
-        $xw->writeElement('date',     (string)($row['avail_date'] ?? ''));
-        $xw->endElement();
+        $specsHtml = $this->specsFullToHtml((string)($row['specs'] ?? ''), $vocab);
+        if ($specsHtml !== '') {
+            $xw->startElement('specs_full');
+            $xw->writeCdata($specsHtml);
+            $xw->endElement();
+        }
+
+        $xw->writeElement('availability_status', (string)$row['avail_status']);
+        $xw->writeElement('availability_date',   (string)($row['avail_date'] ?? ''));
+        $xw->writeElement('quantity',            (string)$row['avail_quantity']);
 
         $xw->writeElement('ps_id_product',      (string)($row['ps_id_product'] ?? ''));
         $xw->writeElement('ps_id_product_attr', (string)($row['ps_id_product_attr'] ?? ''));
@@ -265,11 +351,9 @@ class MyBikeProductsXml
                 $xw->writeElement('price',      (string)$v['price']);
                 $xw->writeElement('base_price', (string)$v['base_price']);
             }
-            $xw->startElement('availability');
-            $xw->writeElement('status',   (string)$v['avail_status']);
-            $xw->writeElement('quantity', (string)$v['avail_quantity']);
-            $xw->writeElement('date',     (string)($v['avail_date'] ?? ''));
-            $xw->endElement();
+            $xw->writeElement('availability_status', (string)$v['avail_status']);
+            $xw->writeElement('availability_date',   (string)($v['avail_date'] ?? ''));
+            $xw->writeElement('quantity',            (string)$v['avail_quantity']);
             $xw->endElement(); // variant
         }
         $xw->endElement(); // variants

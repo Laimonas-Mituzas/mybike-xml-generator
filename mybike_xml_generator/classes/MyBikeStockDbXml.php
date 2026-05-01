@@ -53,11 +53,9 @@ class MyBikeStockDbXml
                 $xw->writeElement('manufacturer_id',  (string)$row['manufacturer_id']);
                 $xw->writeElement('price',            (string)$row['price']);
                 $xw->writeElement('base_price',       (string)$row['base_price']);
-                $xw->startElement('availability');
-                $xw->writeElement('status',   (string)$row['avail_status']);
-                $xw->writeElement('quantity', (string)$row['avail_quantity']);
-                $xw->writeElement('date',     (string)($row['avail_date'] ?? ''));
-                $xw->endElement();
+                $xw->writeElement('availability_status', (string)$row['avail_status']);
+                $xw->writeElement('availability_date',   (string)($row['avail_date'] ?? ''));
+                $xw->writeElement('quantity',            (string)$row['avail_quantity']);
                 $xw->writeElement('ps_id_product',      (string)($row['ps_id_product'] ?? ''));
                 $xw->writeElement('ps_id_product_attr', (string)($row['ps_id_product_attr'] ?? ''));
                 $xw->endElement(); // product

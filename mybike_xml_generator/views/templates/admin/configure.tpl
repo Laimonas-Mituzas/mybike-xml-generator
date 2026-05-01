@@ -12,6 +12,7 @@
     <li class="active"><a href="#mbk-tab-settings"    data-toggle="tab"><i class="icon-cogs"></i> Nustatymai</a></li>
     <li>              <a href="#mbk-tab-categories"   data-toggle="tab"><i class="icon-tags"></i> Kategorijos</a></li>
     <li>              <a href="#mbk-tab-import"       data-toggle="tab"><i class="icon-download"></i> Importas</a></li>
+    <li>              <a href="#mbk-tab-vocab"        data-toggle="tab"><i class="icon-book"></i> Žodynas</a></li>
     <li>              <a href="#mbk-tab-xml"          data-toggle="tab"><i class="icon-file-text"></i> XML failai</a></li>
     <li>              <a href="#mbk-tab-log"          data-toggle="tab"><i class="icon-list-alt"></i> Registras</a></li>
   </ul>
@@ -365,7 +366,118 @@
     </div>{* /tab-import *}
 
     {* ================================================================== *}
-    {* TAB 4 — XML FAILAI *}
+    {* TAB 4 — ŽODYNAS *}
+    {* ================================================================== *}
+    <div class="tab-pane" id="mbk-tab-vocab">
+
+      <h2>Specs žodynas</h2>
+      <p class="help-block" style="margin-bottom:16px">
+        <strong>Filtras</strong> — laukas importuojamas kaip PS prekės savybė (filtruojama kainų naršyklėje).<br>
+        <strong>Rodomas</strong> — laukas rodomas <code>specs_full</code> HTML lentelėje produkto aprašyme.<br>
+        Laukai, kurių nėra žodyne, į <code>specs</code> neįtraukiami; <code>specs_full</code> rodomi su originaliu raktu.
+      </p>
+
+      {* --- Esami įrašai --- *}
+      <form method="post" action="{$action_url}">
+        <table class="table table-bordered table-condensed" style="font-size:13px">
+          <thead>
+            <tr>
+              <th style="width:160px">API raktas</th>
+              <th style="width:160px">EN pavadinimas</th>
+              <th style="width:200px">LT pavadinimas</th>
+              <th style="width:70px;text-align:center">Filtras</th>
+              <th style="width:70px;text-align:center">Rodomas</th>
+              <th style="width:70px;text-align:center">Tvarka</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {foreach from=$vocab_entries item=v name=vloop}
+            <tr>
+              <td>
+                <code style="font-size:12px">{$v.api_key|escape:'html'}</code>
+                <input type="hidden" name="vocab_api_key[{$smarty.foreach.vloop.index}]" value="{$v.api_key|escape:'html'}">
+              </td>
+              <td>
+                <input type="text" class="form-control input-sm"
+                       name="vocab_label_en[{$smarty.foreach.vloop.index}]"
+                       value="{$v.label_en|escape:'html'}">
+              </td>
+              <td>
+                <input type="text" class="form-control input-sm"
+                       name="vocab_label_lt[{$smarty.foreach.vloop.index}]"
+                       value="{$v.label_lt|escape:'html'}">
+              </td>
+              <td style="text-align:center;vertical-align:middle">
+                <input type="checkbox" name="vocab_filterable[{$smarty.foreach.vloop.index}]"
+                       value="1" {if $v.filterable}checked{/if}>
+              </td>
+              <td style="text-align:center;vertical-align:middle">
+                <input type="checkbox" name="vocab_show_full[{$smarty.foreach.vloop.index}]"
+                       value="1" {if $v.show_full}checked{/if}>
+              </td>
+              <td style="text-align:center">
+                <input type="number" class="form-control input-sm" style="width:60px"
+                       name="vocab_sort_order[{$smarty.foreach.vloop.index}]"
+                       value="{$v.sort_order|intval}">
+              </td>
+              <td style="text-align:center;vertical-align:middle">
+                <button type="submit" name="delete_vocab_entry" value="1"
+                        class="btn btn-danger btn-xs"
+                        onclick="this.form.querySelector('[name=delete_api_key]').value='{$v.api_key|escape:'javascript'}';return confirm('Ištrinti: {$v.api_key|escape:'javascript'}?')">
+                  <i class="icon-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {/foreach}
+          </tbody>
+        </table>
+        <input type="hidden" name="delete_api_key" value="">
+        <button type="submit" name="save_vocab" class="btn btn-primary">
+          <i class="icon-save"></i> Išsaugoti žodyną
+        </button>
+      </form>
+
+      {* --- Naujas įrašas --- *}
+      <h2 style="margin-top:30px">Pridėti naują lauką</h2>
+      <form method="post" action="{$action_url}" style="max-width:780px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+          <div>
+            <label style="font-size:12px;font-weight:600">API raktas</label>
+            <input type="text" name="new_api_key" class="form-control input-sm" style="width:140px" placeholder="pvz. stem">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600">EN</label>
+            <input type="text" name="new_label_en" class="form-control input-sm" style="width:140px">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600">LT</label>
+            <input type="text" name="new_label_lt" class="form-control input-sm" style="width:160px">
+          </div>
+          <div style="text-align:center">
+            <label style="font-size:12px;font-weight:600;display:block">Filtras</label>
+            <input type="checkbox" name="new_filterable" value="1">
+          </div>
+          <div style="text-align:center">
+            <label style="font-size:12px;font-weight:600;display:block">Rodomas</label>
+            <input type="checkbox" name="new_show_full" value="1" checked>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600">Tvarka</label>
+            <input type="number" name="new_sort_order" class="form-control input-sm" style="width:70px" value="999">
+          </div>
+          <div>
+            <button type="submit" name="add_vocab_entry" class="btn btn-success btn-sm">
+              <i class="icon-plus"></i> Pridėti
+            </button>
+          </div>
+        </div>
+      </form>
+
+    </div>{* /tab-vocab *}
+
+    {* ================================================================== *}
+    {* TAB 5 — XML FAILAI *}
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-xml">
 
@@ -437,7 +549,7 @@
     </div>{* /tab-xml *}
 
     {* ================================================================== *}
-    {* TAB 5 — REGISTRAS *}
+    {* TAB 6 — REGISTRAS *}
     {* ================================================================== *}
     <div class="tab-pane" id="mbk-tab-log">
 

@@ -5,6 +5,7 @@ if (!defined('_PS_VERSION_')) {
 
 require_once dirname(__FILE__) . '/config/config.php';
 require_once dirname(__FILE__) . '/classes/MyBikeCategoryManager.php';
+require_once dirname(__FILE__) . '/classes/MyBikeSpecsVocab.php';
 require_once dirname(__FILE__) . '/classes/MyBikePriceCalc.php';
 
 class Mybike_xml_generator extends Module
@@ -13,7 +14,7 @@ class Mybike_xml_generator extends Module
     {
         $this->name          = 'mybike_xml_generator';
         $this->tab           = 'administration';
-        $this->version       = '2.0.0';
+        $this->version       = '2.1.0';
         $this->author        = 'Augu su Presta';
         $this->need_instance = 0;
         $this->bootstrap     = true;
@@ -46,6 +47,8 @@ class Mybike_xml_generator extends Module
         }
 
         MyBikeCategoryManager::createTable();
+        MyBikeSpecsVocab::createTable();
+        MyBikeSpecsVocab::populate();
         $this->createStagingTables();
 
         return $this->installTab();
@@ -67,6 +70,7 @@ class Mybike_xml_generator extends Module
         }
 
         MyBikeCategoryManager::dropTable();
+        MyBikeSpecsVocab::dropTable();
         $this->dropStagingTables();
         $this->uninstallTab();
 

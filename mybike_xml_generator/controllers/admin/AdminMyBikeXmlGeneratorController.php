@@ -8,6 +8,7 @@ require_once dirname(__FILE__) . '/../../classes/MyBikeLogger.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeApiClient.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeCategoryManager.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeProductsXml.php';
+require_once dirname(__FILE__) . '/../../classes/MyBikeSpecsVocab.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeStockDbXml.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikePriceCalc.php';
 require_once dirname(__FILE__) . '/../../classes/MyBikeManufacturerMap.php';
@@ -56,6 +57,12 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->runStockXml();
         } elseif (Tools::isSubmit('clear_log')) {
             $this->clearLog();
+        } elseif (Tools::isSubmit('save_vocab')) {
+            $this->saveVocab();
+        } elseif (Tools::isSubmit('add_vocab_entry')) {
+            $this->addVocabEntry();
+        } elseif (Tools::isSubmit('delete_vocab_entry')) {
+            $this->deleteVocabEntry();
         }
     }
 
@@ -112,6 +119,8 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'last_import'            => $this->lastImportData(),
             'staging_count'          => $this->getStagingCount(),
             'last_test_import'       => $this->lastTestImportData(),
+            // vocab tab
+            'vocab_entries'          => MyBikeSpecsVocab::getAllRows(),
             // log tab
             'log_api_sync'           => $this->getLogContent(MYBIKE_API_SYNC_LOG),
             'log_ps_import'          => $this->getLogContent(MYBIKE_IMPORT_LOG),
@@ -544,6 +553,67 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'duration' => Configuration::get('MYBIKE_LAST_' . $type . '_DURATION') ?: '—',
             'status'   => Configuration::get('MYBIKE_LAST_' . $type . '_STATUS')   ?: '—',
         ];
+    }
+
+    private function saveVocab()
+    {
+        $apiKeys   = Tools::getValue('vocab_api_key');
+        $labelsEn  = Tools::getValue('vocab_label_en');
+        $labelsLt  = Tools::getValue('vocab_label_lt');
+        $filterable = Tools::getValue('vocab_filterable') ?: [];
+        $showFull   = Tools::getValue('vocab_show_full')  ?: [];
+        $sortOrders = Tools::getValue('vocab_sort_order');
+
+        if (!is_array($apiKeys)) {
+            $this->confirmations[] = $this->l('Nieko neišsaugota.');
+            return;
+        }
+
+        $entries = [];
+        foreach ($apiKeys as $i => $key) {
+            $key = trim($key);
+            if ($key === '') {
+                continue;
+            }
+            $entries[] = [
+                'api_key'    => $key,
+                'label_en'   => trim($labelsEn[$i] ?? ''),
+                'label_lt'   => trim($labelsLt[$i] ?? ''),
+                'filterable' => isset($filterable[$i]) ? 1 : 0,
+                'show_full'  => isset($showFull[$i])   ? 1 : 0,
+                'sort_order' => (int)($sortOrders[$i]  ?? 0),
+            ];
+        }
+
+        MyBikeSpecsVocab::saveAll($entries);
+        $this->confirmations[] = $this->l('Žodynas išsaugotas: ') . count($entries) . ' įrašų.';
+    }
+
+    private function addVocabEntry()
+    {
+        $apiKey    = trim(Tools::getValue('new_api_key'));
+        $labelEn   = trim(Tools::getValue('new_label_en'));
+        $labelLt   = trim(Tools::getValue('new_label_lt'));
+        $filterable = (bool)Tools::getValue('new_filterable');
+        $showFull   = (bool)Tools::getValue('new_show_full');
+        $sortOrder  = (int)Tools::getValue('new_sort_order');
+
+        if ($apiKey === '') {
+            $this->errors[] = $this->l('API raktas negali būti tuščias.');
+            return;
+        }
+
+        MyBikeSpecsVocab::addEntry($apiKey, $labelEn, $labelLt, $filterable, $showFull, $sortOrder);
+        $this->confirmations[] = $this->l('Įrašas pridėtas: ') . htmlspecialchars($apiKey);
+    }
+
+    private function deleteVocabEntry()
+    {
+        $apiKey = Tools::getValue('delete_api_key');
+        if ($apiKey) {
+            MyBikeSpecsVocab::deleteEntry($apiKey);
+            $this->confirmations[] = $this->l('Įrašas ištrintas: ') . htmlspecialchars($apiKey);
+        }
     }
 
     private function setConfig($name, $value)
