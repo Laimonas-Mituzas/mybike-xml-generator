@@ -48,7 +48,7 @@ class MyBikeProductsXml
         $xwComb->openURI($tmpComb);
         $xwComb->startDocument('1.0', 'UTF-8');
         $xwComb->setIndent(false);
-        $xwComb->startElement('products');
+        $xwComb->startElement('COMBINATIONS');
         $xwComb->writeAttribute('generated', date('c'));
 
         $vocab     = MyBikeSpecsVocab::loadAll();
@@ -82,7 +82,7 @@ class MyBikeProductsXml
 
                 if ($isBikeSection && $type === 'combinations') {
                     $this->writeCombination($xwComb, $rep, $variants);
-                    $combCount++;
+                    $combCount += count($variants);
                 }
             }
         }
@@ -313,60 +313,36 @@ class MyBikeProductsXml
 
     private function writeCombination(XMLWriter $xw, array $rep, array $variants): void
     {
-        $prices       = array_unique(array_column($variants, 'price'));
-        $basePrices   = array_unique(array_column($variants, 'base_price'));
-        $uniformPrice = count($prices) === 1 && count($basePrices) === 1;
+        $defaultPrice = (float)$variants[0]['price'];
 
-        $xw->startElement('product');
-        $xw->writeAttribute('type',          'combinations');
-        $xw->writeAttribute('ps_id_product', (string)($rep['ps_id_product'] ?? ''));
-
-        $xw->writeElement('mybike_id',   (string)$rep['mybike_id']);
-        $xw->writeElement('name',        $this->productName($rep));
-        $xw->writeElement('brand',       (string)$rep['brand']);
-        $xw->writeElement('model',       (string)$rep['model']);
-        $xw->writeElement('color',       (string)$rep['color']);
-        $xw->writeElement('section',     (string)$rep['section']);
-        $xw->writeElement('category',    (string)$rep['category']);
-        $xw->writeElement('category_id', (string)$rep['category_id']);
-
-        if ($uniformPrice) {
-            $xw->writeElement('price',      (string)$rep['price']);
-            $xw->writeElement('base_price', (string)$rep['base_price']);
-        }
-
-        $images = json_decode((string)($rep['images'] ?? ''), true);
-        if (!empty($images) && is_array($images)) {
-            $xw->startElement('images');
-            foreach ($images as $img) {
-                $xw->startElement('image');
-                $xw->writeAttribute('url', (string)($img['url'] ?? ''));
-                $xw->endElement();
-            }
-            $xw->endElement();
-        }
-
-        $xw->startElement('variants');
-        $xw->writeAttribute('count', (string)count($variants));
         foreach ($variants as $i => $v) {
-            $xw->startElement('variant');
-            $xw->writeAttribute('mybike_id',          (string)$v['mybike_id']);
-            $xw->writeAttribute('size',               (string)$v['size']);
-            $xw->writeAttribute('default',            $i === 0 ? '1' : '0');
-            $xw->writeAttribute('ps_id_product_attr', (string)($v['ps_id_product_attr'] ?? ''));
-            $xw->writeElement('manufacturer_id',  (string)$v['manufacturer_id']);
-            $xw->writeElement('standard_item_id', (string)$v['standard_item_id']);
-            if (!$uniformPrice) {
-                $xw->writeElement('price',      (string)$v['price']);
-                $xw->writeElement('base_price', (string)$v['base_price']);
-            }
-            $xw->writeElement('availability_status', (string)$v['avail_status']);
-            $xw->writeElement('availability_date',   (string)($v['avail_date'] ?? ''));
-            $xw->writeElement('quantity',            (string)$v['avail_quantity']);
-            $xw->endElement(); // variant
-        }
-        $xw->endElement(); // variants
+            $images   = json_decode((string)($v['images'] ?? ''), true);
+            $firstImg = (!empty($images) && is_array($images)) ? (string)($images[0]['url'] ?? '') : '';
 
-        $xw->endElement(); // product
+            $impact = (float)$v['price'] - $defaultPrice;
+
+            $xw->startElement('PRODUCT');
+
+            $xw->writeElement('PRODUCT_ID',            (string)($v['ps_id_product'] ?? ''));
+            $xw->writeElement('PRODUCT_REFERENCE',     (string)$rep['manufacturer_id']);
+            $xw->writeElement('COMBINATION_REFERENCE', (string)$v['manufacturer_id']);
+            $xw->writeElement('ATTRIBUTE_NAMES',       'Size');
+            $xw->writeElement('ATTRIBUTE_VALUES',      (string)$v['size']);
+            $xw->writeElement('SUPPLIER_REFERENCE',    (string)$v['manufacturer_id']);
+            $xw->writeElement('SUPPLIER_PRICE',        number_format((float)$v['base_price'], 6, '.', ''));
+
+            $xw->startElement('IMAGES');
+            $xw->writeCdata($firstImg);
+            $xw->endElement();
+
+            $xw->writeElement('PRICE_TAX_EXCLUDED', (string)$v['price']);
+            $xw->writeElement('PRICE_TAX_INCLUDED', (string)$v['price']);
+            $xw->writeElement('IMPACT_ON_PRICE',    number_format($impact, 6, '.', ''));
+            $xw->writeElement('QUANTITY',           (string)$v['avail_quantity']);
+            $xw->writeElement('MINIMAL_QUANTITY',   '1');
+            $xw->writeElement('DEFAULT',            $i === 0 ? '1' : '0');
+
+            $xw->endElement(); // PRODUCT
+        }
     }
 }
