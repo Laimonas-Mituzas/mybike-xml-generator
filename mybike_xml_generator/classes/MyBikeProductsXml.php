@@ -156,11 +156,21 @@ class MyBikeProductsXml
         return ['representative' => $variants[0], 'variants' => $variants, 'type' => $type];
     }
 
+    private function productName(array $row): string
+    {
+        $name = $row['brand'] . ' ' . $row['model'];
+        if ($row['color'] !== '') {
+            $name .= ' ' . $row['color'];
+        }
+        return trim($name);
+    }
+
     private function writeFullProduct(XMLWriter $xw, array $row): void
     {
         $xw->startElement('product');
 
         $xw->writeElement('id',               (string)$row['mybike_id']);
+        $xw->writeElement('name',             $this->productName($row));
         $xw->writeElement('standard_item_id', (string)$row['standard_item_id']);
         $xw->writeElement('manufacturer_id',  (string)$row['manufacturer_id']);
         $xw->writeElement('brand',            (string)$row['brand']);
@@ -217,6 +227,7 @@ class MyBikeProductsXml
         $xw->writeAttribute('ps_id_product', (string)($rep['ps_id_product'] ?? ''));
 
         $xw->writeElement('mybike_id',   (string)$rep['mybike_id']);
+        $xw->writeElement('name',        $this->productName($rep));
         $xw->writeElement('brand',       (string)$rep['brand']);
         $xw->writeElement('model',       (string)$rep['model']);
         $xw->writeElement('color',       (string)$rep['color']);
