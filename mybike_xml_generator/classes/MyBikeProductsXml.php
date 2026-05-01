@@ -322,7 +322,7 @@ class MyBikeProductsXml
 
             $xw->startElement('COMBINATION');
 
-            $xw->writeElement('PRODUCT_ID',            (string)$v['mybike_id']);
+            $xw->writeElement('PRODUCT_ID',            (string)$rep['mybike_id']);
             $xw->writeElement('standard_item_id',      (string)$v['standard_item_id']);
             $xw->writeElement('manufacturer_id',       (string)$v['manufacturer_id']);
             $xw->writeElement('PRODUCT_REFERENCE',     (string)$rep['manufacturer_id']);
