@@ -119,7 +119,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             // v2 — last run data
             'last_api_sync'          => $this->lastApiSyncData(),
             'last_import'            => $this->lastImportData(),
-            'staging_count'          => $this->getStagingCount(),
             'last_test_import'       => $this->lastTestImportData(),
             // vocab tab
             'vocab_entries'          => MyBikeSpecsVocab::getAllRows(),
@@ -510,18 +509,11 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         );
     }
 
-    private function getStagingCount(): int
-    {
-        return (int)Db::getInstance()->getValue(
-            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'mybike_product`'
-        );
-    }
-
     private function lastApiSyncData(): array
     {
         return [
             'run'      => Configuration::get('MYBIKE_LAST_API_SYNC_RUN')      ?: '—',
-            'count'    => Configuration::get('MYBIKE_LAST_API_SYNC_COUNT')    ?: '—',
+            'count'    => (int)Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'mybike_product`'),
             'duration' => Configuration::get('MYBIKE_LAST_API_SYNC_DURATION') ?: '—',
             'status'   => Configuration::get('MYBIKE_LAST_API_SYNC_STATUS')   ?: '—',
         ];

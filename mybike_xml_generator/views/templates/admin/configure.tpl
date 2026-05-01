@@ -285,7 +285,7 @@
         </tbody>
       </table>
       <p class="help-block">
-        Atsisiųsta prekių: <strong>{$staging_count|intval}</strong>.
+        Atsisiųsta prekių: <strong>{$last_api_sync.count|intval}</strong>.
         <form method="post" action="{$action_url}" style="display:inline;margin-left:12px">
           <button type="submit" name="clear_staging" class="btn btn-danger btn-xs"
                   onclick="return confirm('Išvalyti API duomenis? Visi atsisiųsti duomenys ir PS susiejimai bus prarasti.')">
