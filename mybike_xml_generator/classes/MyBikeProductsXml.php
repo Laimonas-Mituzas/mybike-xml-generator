@@ -4,6 +4,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 require_once dirname(__FILE__) . '/MyBikeCategoryManager.php';
+require_once dirname(__FILE__) . '/MyBikeSpecsVocab.php';
 
 /**
  * Generates products_full.xml AND products_combinations.xml in one DB pass.
