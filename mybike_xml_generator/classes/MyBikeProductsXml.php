@@ -321,9 +321,11 @@ class MyBikeProductsXml
 
             $impact = (float)$v['price'] - $defaultPrice;
 
-            $xw->startElement('PRODUCT');
+            $xw->startElement('COMBINATION');
 
-            $xw->writeElement('PRODUCT_ID',            (string)($v['ps_id_product'] ?? ''));
+            $xw->writeElement('PRODUCT_ID',            (string)$v['mybike_id']);
+            $xw->writeElement('standard_item_id',      (string)$v['standard_item_id']);
+            $xw->writeElement('manufacturer_id',       (string)$v['manufacturer_id']);
             $xw->writeElement('PRODUCT_REFERENCE',     (string)$rep['manufacturer_id']);
             $xw->writeElement('COMBINATION_REFERENCE', (string)$v['manufacturer_id']);
             $xw->writeElement('ATTRIBUTE_NAMES',       'Size');
@@ -335,6 +337,8 @@ class MyBikeProductsXml
             $xw->writeCdata($firstImg);
             $xw->endElement();
 
+            $xw->writeElement('price',              (string)$v['price']);
+            $xw->writeElement('base_price',         (string)$v['base_price']);
             $xw->writeElement('PRICE_TAX_EXCLUDED', (string)$v['price']);
             $xw->writeElement('PRICE_TAX_INCLUDED', (string)$v['price']);
             $xw->writeElement('IMPACT_ON_PRICE',    number_format($impact, 6, '.', ''));
@@ -342,7 +346,7 @@ class MyBikeProductsXml
             $xw->writeElement('MINIMAL_QUANTITY',   '1');
             $xw->writeElement('DEFAULT',            $i === 0 ? '1' : '0');
 
-            $xw->endElement(); // PRODUCT
+            $xw->endElement(); // COMBINATION
         }
     }
 }
