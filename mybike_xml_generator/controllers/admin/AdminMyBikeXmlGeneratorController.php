@@ -220,10 +220,14 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         if (!$apiKey) { $this->errors[] = $this->l('API raktas nenurodytas.'); return; }
 
         try {
-            $client   = new MyBikeApiClient($apiKey);
-            $response = $client->getCategories();
-            $cats     = $response['data'] ?? [];
+            $client    = new MyBikeApiClient($apiKey);
+            $response  = $client->getCategories();
+            $cats      = $response['data'] ?? [];
+            $firstTime = MyBikeCategoryManager::isEmpty();
             MyBikeCategoryManager::populate($cats);
+            if ($firstTime) {
+                MyBikeCategoryManager::enableAll();
+            }
             $this->confirmations[] = $this->l('Kategorijų sąrašas atnaujintas: ') . count($cats) . ' kategorijų.';
         } catch (Exception $e) {
             $this->errors[] = $e->getMessage();

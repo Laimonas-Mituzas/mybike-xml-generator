@@ -91,6 +91,14 @@ class MyBikeCategoryManager
         );
     }
 
+    // Įjungti visas kategorijas (naudojama po pirmo API fetch)
+    public static function enableAll()
+    {
+        return Db::getInstance()->execute(
+            'UPDATE `' . _DB_PREFIX_ . self::TABLE . '` SET `enabled` = 1'
+        );
+    }
+
     // Išsaugoti pasirinkimus iš formos (masyvas įjungtų ID)
     public static function saveSelection(array $enabledIds)
     {
