@@ -25,6 +25,11 @@ if (!$savedToken || !hash_equals($savedToken, $token)) {
     exit('Forbidden');
 }
 
+if (!Module::isEnabled('mybike_xml_generator')) {
+    http_response_code(503);
+    exit('Module disabled');
+}
+
 $mode = (isset($_GET['mode']) && $_GET['mode'] === 'stock') ? 'stock' : 'full';
 
 set_time_limit(900);

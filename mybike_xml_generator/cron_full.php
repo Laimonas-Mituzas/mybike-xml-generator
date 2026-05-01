@@ -22,6 +22,11 @@ if (!$savedToken || !hash_equals($savedToken, $token)) {
     exit('Forbidden');
 }
 
+if (!Module::isEnabled('mybike_xml_generator')) {
+    http_response_code(503);
+    exit('Module disabled');
+}
+
 set_time_limit(300);
 
 $logger  = new MyBikeLogger(MYBIKE_XML_LOG);
