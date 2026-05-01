@@ -372,14 +372,24 @@
       <p class="help-block">XML failai generuojami iš atsisiųstų API duomenų. Prieš generuodami paleiskite duomenų atsisiuntimą iš API.</p>
       <table class="table" style="max-width:960px">
         <thead>
-          <tr><th>Failas</th><th>Sugeneruotas</th><th>Dydis</th><th>Produktų</th><th>Trukmė</th><th>Statusas</th><th>Cron URL + Generuoti</th></tr>
+          <tr><th>Failas</th><th>Sugeneruotas</th><th>Dydis</th><th>Produktų</th><th>Trukmė</th><th>Statusas</th><th>Cron URL / Generuoti</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td><strong>products_full.xml</strong><br><span class="text-muted" style="font-size:11px">Visi laukai, vienas įrašas/eilutė</span></td>
+            <td>
+              <strong>products_full.xml</strong><br>
+              <span class="text-muted" style="font-size:11px">Visi laukai, vienas įrašas/eilutė</span><br>
+              <span class="text-muted" style="font-size:11px">+ products_combinations.xml</span>
+            </td>
             <td>{$last_full.run}</td>
-            <td>{$full_xml.size}</td>
-            <td>{$last_full.count}</td>
+            <td>
+              {$full_xml.size}<br>
+              <span class="text-muted" style="font-size:11px">{$combinations_xml.size}</span>
+            </td>
+            <td>
+              {$last_full.count}<br>
+              <span class="text-muted" style="font-size:11px">{$last_combinations.count} derinių</span>
+            </td>
             <td>{if $last_full.duration neq '—'}{$last_full.duration}s{else}—{/if}</td>
             <td>
               {if $last_full.status eq 'ok'}
@@ -393,30 +403,7 @@
                      value="{$cron_full_url|escape:'html'}" readonly onclick="this.select()">
               <form method="post" action="{$action_url}">
                 <button type="submit" name="run_full" class="btn btn-primary btn-sm">
-                  <i class="icon-play"></i>  Generuoti dabar
-                </button>
-              </form>
-            </td>
-          </tr>
-          <tr>
-            <td><strong>products_combinations.xml</strong><br><span class="text-muted" style="font-size:11px">Bikes/E-Bikes grupuoti su &lt;variants&gt;</span></td>
-            <td>{$last_combinations.run}</td>
-            <td>{$combinations_xml.size}</td>
-            <td>{$last_combinations.count}</td>
-            <td>{if $last_combinations.duration neq '—'}{$last_combinations.duration}s{else}—{/if}</td>
-            <td>
-              {if $last_combinations.status eq 'ok'}
-                <span class="label label-success">OK</span>
-              {elseif $last_combinations.status neq '—'}
-                <span class="label label-danger" title="{$last_combinations.status|escape:'html'}">Klaida</span>
-              {else}—{/if}
-            </td>
-            <td>
-              <input type="text" class="form-control input-xs" style="width:100%;max-width:340px;font-size:11px;margin-bottom:4px"
-                     value="{$cron_combinations_url|escape:'html'}" readonly onclick="this.select()">
-              <form method="post" action="{$action_url}">
-                <button type="submit" name="run_combinations" class="btn btn-primary btn-sm">
-                  <i class="icon-play"></i>  Generuoti dabar
+                  <i class="icon-play"></i> Generuoti dabar
                 </button>
               </form>
             </td>
@@ -495,24 +482,13 @@
             </td>
           </tr>
           <tr>
-            <td><strong>XML Full</strong></td>
+            <td><strong>XML Full + Combinations</strong></td>
             <td class="text-muted">{$last_full.run}</td>
-            <td>{$last_full.count} produktų</td>
+            <td>{$last_full.count} produktų / {$last_combinations.count} derinių</td>
             <td>{if $last_full.duration neq '—'}{$last_full.duration}s{else}—{/if}</td>
             <td>
               {if $last_full.status eq 'ok'}<span class="label label-success">OK</span>
               {elseif $last_full.status neq '—'}<span class="label label-danger" title="{$last_full.status|escape:'html'}">Klaida</span>
-              {else}—{/if}
-            </td>
-          </tr>
-          <tr>
-            <td><strong>XML Combinations</strong></td>
-            <td class="text-muted">{$last_combinations.run}</td>
-            <td>{$last_combinations.count} grupių</td>
-            <td>{if $last_combinations.duration neq '—'}{$last_combinations.duration}s{else}—{/if}</td>
-            <td>
-              {if $last_combinations.status eq 'ok'}<span class="label label-success">OK</span>
-              {elseif $last_combinations.status neq '—'}<span class="label label-danger" title="{$last_combinations.status|escape:'html'}">Klaida</span>
               {else}—{/if}
             </td>
           </tr>

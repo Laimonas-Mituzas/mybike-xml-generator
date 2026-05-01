@@ -1,6 +1,6 @@
 <?php
 /**
- * Generates products_full.xml from ps_mybike_product staging table.
+ * Generates products_full.xml AND products_combinations.xml in one pass.
  * Run after cron_api_sync.php (full mode).
  */
 $psRoot = dirname(__FILE__, 3);
@@ -12,7 +12,7 @@ require_once $psRoot . '/config/config.inc.php';
 
 require_once dirname(__FILE__) . '/config/config.php';
 require_once dirname(__FILE__) . '/classes/MyBikeLogger.php';
-require_once dirname(__FILE__) . '/classes/MyBikeFullDbXml.php';
+require_once dirname(__FILE__) . '/classes/MyBikeProductsXml.php';
 
 $token      = isset($_GET['token']) ? $_GET['token'] : '';
 $savedToken = Configuration::get('MYBIKE_CRON_TOKEN');
@@ -25,22 +25,27 @@ if (!$savedToken || !hash_equals($savedToken, $token)) {
 set_time_limit(300);
 
 $logger  = new MyBikeLogger(MYBIKE_XML_LOG);
-$builder = new MyBikeFullDbXml(MYBIKE_FULL_XML, $logger);
+$builder = new MyBikeProductsXml(MYBIKE_FULL_XML, MYBIKE_COMBINATIONS_XML, $logger);
 
 try {
-    $start  = microtime(true);
-    $count  = $builder->build();
-    $duration = (int)round(microtime(true) - $start);
+    $result   = $builder->build();
+    $duration = $result['duration'];
 
     mybike_set_config('MYBIKE_LAST_FULL_RUN',      date('Y-m-d H:i:s'));
-    mybike_set_config('MYBIKE_LAST_FULL_COUNT',    (string)$count);
+    mybike_set_config('MYBIKE_LAST_FULL_COUNT',    (string)$result['full']);
     mybike_set_config('MYBIKE_LAST_FULL_DURATION', (string)$duration);
     mybike_set_config('MYBIKE_LAST_FULL_STATUS',   'ok');
 
-    echo 'OK: ' . $count . ' products, ' . $duration . 's';
+    mybike_set_config('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+    mybike_set_config('MYBIKE_LAST_COMB_COUNT',    (string)$result['combinations']);
+    mybike_set_config('MYBIKE_LAST_COMB_DURATION', (string)$duration);
+    mybike_set_config('MYBIKE_LAST_COMB_STATUS',   'ok');
+
+    echo 'OK: full=' . $result['full'] . ' combinations=' . $result['combinations'] . ' ' . $duration . 's';
 } catch (Exception $e) {
     $logger->error($e->getMessage());
     mybike_set_config('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
+    mybike_set_config('MYBIKE_LAST_COMB_STATUS', 'error: ' . $e->getMessage());
     http_response_code(500);
     echo 'ERROR: ' . $e->getMessage();
 }
