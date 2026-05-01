@@ -168,17 +168,10 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->setConfig('MYBIKE_LAST_FULL_DURATION', (string)$dur);
             $this->setConfig('MYBIKE_LAST_FULL_STATUS',   'ok');
 
-            $this->setConfig('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
-            $this->setConfig('MYBIKE_LAST_COMB_COUNT',    (string)$result['combinations']);
-            $this->setConfig('MYBIKE_LAST_COMB_DURATION', (string)$dur);
-            $this->setConfig('MYBIKE_LAST_COMB_STATUS',   'ok');
-
-            $_SESSION['mybike_success'] = 'XML sugeneruoti: full=' . $result['full']
-                . ' combinations=' . $result['combinations'] . ', ' . $dur . 's';
+            $_SESSION['mybike_success'] = 'Full XML sugeneruotas: ' . $result['full'] . ' prekių, ' . $dur . 's';
         } catch (Exception $e) {
             $logger->error($e->getMessage());
             $this->setConfig('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
-            $this->setConfig('MYBIKE_LAST_COMB_STATUS', 'error: ' . $e->getMessage());
             $_SESSION['mybike_error'] = $e->getMessage();
         }
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
