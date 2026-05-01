@@ -104,6 +104,56 @@ class MyBikeProductsXml
         return ['full' => $fullCount, 'combinations' => $combCount, 'duration' => $duration];
     }
 
+    public function buildCombinationsOnly(): array
+    {
+        $start = microtime(true);
+        $this->logger->info('Combinations XML rebuild started');
+
+        $tmpComb = $this->combinationsFile . '.tmp';
+
+        $xwComb = new XMLWriter();
+        $xwComb->openURI($tmpComb);
+        $xwComb->startDocument('1.0', 'UTF-8');
+        $xwComb->setIndent(false);
+        $xwComb->startElement('COMBINATIONS');
+        $xwComb->writeAttribute('generated', date('c'));
+
+        $combCount  = 0;
+        $enabledIds = MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds();
+        $catFilter  = !empty($enabledIds)
+            ? ' AND `category_id` IN (' . implode(',', array_map('intval', $enabledIds)) . ')'
+            : '';
+
+        foreach (self::BIKE_SECTIONS as $section) {
+            $rows = Db::getInstance()->executeS(
+                "SELECT * FROM `" . _DB_PREFIX_ . "mybike_product`
+                 WHERE `section` = '" . pSQL($section) . "'
+                   AND `avail_status` != 'deleted'"
+                . $catFilter .
+                " ORDER BY `brand`, `model`, `color`, `mybike_id`"
+            );
+
+            foreach ($this->groupByBrandModelColor($rows) as $group) {
+                $resolved = $this->resolveGroup($group);
+                if ($resolved['type'] === 'combinations') {
+                    $this->writeCombination($xwComb, $resolved['representative'], $resolved['variants']);
+                    $combCount += count($resolved['variants']);
+                }
+            }
+        }
+
+        $xwComb->endElement();
+        $xwComb->flush();
+        unset($xwComb);
+
+        rename($tmpComb, $this->combinationsFile);
+
+        $duration = (int)round(microtime(true) - $start);
+        $this->logger->info("Combinations XML rebuild done: count={$combCount}, {$duration}s");
+
+        return ['combinations' => $combCount, 'duration' => $duration];
+    }
+
     // -----------------------------------------------------------------------
 
     private function groupByBrandModelColor(array $rows): array

@@ -16,6 +16,7 @@ require_once dirname(__FILE__) . '/classes/MyBikePriceCalc.php';
 require_once dirname(__FILE__) . '/classes/MyBikeManufacturerMap.php';
 require_once dirname(__FILE__) . '/classes/MyBikeAttributeMap.php';
 require_once dirname(__FILE__) . '/classes/MyBikePsImport.php';
+require_once dirname(__FILE__) . '/classes/MyBikeProductsXml.php';
 
 $token      = isset($_GET['token']) ? $_GET['token'] : '';
 $savedToken = Configuration::get('MYBIKE_CRON_TOKEN');
@@ -53,6 +54,19 @@ try {
     if (!empty($result['warnings'])) {
         echo "\nWARNINGS:\n" . implode("\n", $result['warnings']);
     }
+
+    // Regenerate combinations XML — ps_id_product now filled in staging
+    $xmlLogger  = new MyBikeLogger(MYBIKE_XML_LOG);
+    $combXml    = new MyBikeProductsXml(MYBIKE_FULL_XML, MYBIKE_COMBINATIONS_XML, $xmlLogger);
+    $combResult = $combXml->buildCombinationsOnly();
+
+    mybike_set_config('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+    mybike_set_config('MYBIKE_LAST_COMB_COUNT',    (string)$combResult['combinations']);
+    mybike_set_config('MYBIKE_LAST_COMB_DURATION', (string)$combResult['duration']);
+    mybike_set_config('MYBIKE_LAST_COMB_STATUS',   'ok');
+
+    echo "\nCombinations XML: " . $combResult['combinations'] . ' rows, ' . $combResult['duration'] . 's';
+
 } catch (Exception $e) {
     $logger->error($e->getMessage());
     mybike_set_config('MYBIKE_LAST_IMPORT_STATUS', 'error: ' . $e->getMessage());
