@@ -98,8 +98,9 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'only_in_stock'          => (bool)Configuration::get('MYBIKE_ONLY_IN_STOCK'),
             'categories_grouped'     => MyBikeCategoryManager::getAllGrouped(),
             'categories_empty'       => MyBikeCategoryManager::isEmpty(),
-            'categories_enabled_cnt' => count(MyBikeCategoryManager::getEnabledIds()),
-            'categories_total_cnt'   => array_sum(array_map('count', MyBikeCategoryManager::getAllGrouped())),
+            'categories_enabled_cnt'   => count(MyBikeCategoryManager::getEnabledIds()),
+            'categories_total_cnt'     => array_sum(array_map('count', MyBikeCategoryManager::getAllGrouped())),
+            'categories_enabled_prods' => MyBikeCategoryManager::getEnabledProductCount(),
             // v2 — import config
             'import_price_key'       => Configuration::get('MYBIKE_PRICE_KEY') ?: 'price',
             'import_coefficient'     => Configuration::get('MYBIKE_PRICE_COEFFICIENT') ?: '1.00',
@@ -114,6 +115,7 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             'cron_api_sync_full_url'  => $baseUrl . '/cron_api_sync.php?token=' . $token . '&mode=full',
             'cron_api_sync_stock_url' => $baseUrl . '/cron_api_sync.php?token=' . $token . '&mode=stock',
             'cron_ps_import_url'      => $baseUrl . '/cron_ps_import.php?token=' . $token,
+            'ajax_import_status_url'  => $baseUrl . '/ajax_import_status.php?token=' . $token,
             // v2 — last run data
             'last_api_sync'          => $this->lastApiSyncData(),
             'last_import'            => $this->lastImportData(),
@@ -371,6 +373,7 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         set_time_limit(1800);
         $logger = new MyBikeLogger(MYBIKE_IMPORT_LOG);
         $import = new MyBikePsImport($logger);
+        $import->setProgressFile(MYBIKE_IMPORT_PROGRESS);
 
         try {
             $result = $import->run();

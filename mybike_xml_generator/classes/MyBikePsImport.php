@@ -15,6 +15,11 @@ class MyBikePsImport
     private $newProductMeta = [];  // id_product → representative row (for image sync)
     private $stats = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'images' => 0, 'warnings' => []];
 
+    private $progressFile    = null;
+    private $progressTotal   = 0;
+    private $progressCurrent = 0;
+    private $progressLastTs  = 0;
+
     const BIKE_SECTIONS  = ['Bikes', 'E-Bikes'];
     const PARTS_SECTIONS = ['Parts', 'Accessories'];
 
@@ -26,6 +31,37 @@ class MyBikePsImport
         $this->priceCalc        = MyBikePriceCalc::fromConfig();
         $this->langs            = Language::getLanguages(true);
         $this->defaultLangId    = (int)Configuration::get('PS_LANG_DEFAULT');
+    }
+
+    public function setProgressFile(string $path): void
+    {
+        $this->progressFile = $path;
+        $this->writeProgress('Ruošiamasi...', 0, 0, 'running');
+    }
+
+    private function writeProgress(string $step, int $current, int $total, string $status = 'running'): void
+    {
+        if (!$this->progressFile) {
+            return;
+        }
+        $percent = $total > 0 ? min(100, (int)round($current / $total * 100)) : 0;
+        file_put_contents($this->progressFile, json_encode([
+            'step'    => $step,
+            'current' => $current,
+            'total'   => $total,
+            'percent' => $percent,
+            'status'  => $status,
+            'ts'      => time(),
+        ]), LOCK_EX);
+        $this->progressLastTs = time();
+    }
+
+    private function maybeWriteProgress(string $step): void
+    {
+        if (!$this->progressFile || time() - $this->progressLastTs < 2) {
+            return;
+        }
+        $this->writeProgress($step, $this->progressCurrent, $this->progressTotal);
     }
 
     /**
@@ -123,34 +159,63 @@ class MyBikePsImport
         $start = microtime(true);
         $this->logger->info('PS import started');
 
-        $warnings = $this->preCheck();
-        foreach ($warnings as $w) {
-            $this->logger->info('WARNING: ' . $w);
+        try {
+            // Pre-count groups/rows so progress bar has a denominator
+            if ($this->progressFile) {
+                foreach (array_merge(self::BIKE_SECTIONS, self::PARTS_SECTIONS) as $sec) {
+                    if (in_array($sec, self::BIKE_SECTIONS, true)) {
+                        $this->progressTotal += (int)Db::getInstance()->getValue(
+                            "SELECT COUNT(DISTINCT CONCAT(brand,'|',model,'|',color))
+                             FROM `" . _DB_PREFIX_ . "mybike_product`
+                             WHERE `section` = '" . pSQL($sec) . "' AND `avail_status` != 'deleted'"
+                        );
+                    } else {
+                        $this->progressTotal += (int)Db::getInstance()->getValue(
+                            "SELECT COUNT(*) FROM `" . _DB_PREFIX_ . "mybike_product`
+                             WHERE `section` = '" . pSQL($sec) . "' AND `avail_status` != 'deleted'"
+                        );
+                    }
+                }
+                $this->writeProgress('Tikrinimas ir paruošimas...', 0, $this->progressTotal);
+            }
+
+            $warnings = $this->preCheck();
+            foreach ($warnings as $w) {
+                $this->logger->info('WARNING: ' . $w);
+            }
+            $this->stats['warnings'] = $warnings;
+
+            $mfResult   = $this->manufacturerMap->warmUp();
+            $attrResult = $this->attributeMap->warmUp();
+            $this->logger->info('ManufacturerMap: found=' . $mfResult['found'] . ' created=' . $mfResult['created']);
+            $this->logger->info('AttributeMap: group_id=' . $attrResult['group_id'] . ' found=' . $attrResult['found'] . ' created=' . $attrResult['created']);
+
+            $this->writeProgress('Importuojamos prekės...', 0, $this->progressTotal);
+
+            foreach (array_merge(self::BIKE_SECTIONS, self::PARTS_SECTIONS) as $section) {
+                $this->importSection($section);
+            }
+
+            $this->writeProgress('Nuotraukų sinchronizavimas...', $this->progressTotal, $this->progressTotal);
+            $this->syncImages();
+
+            $duration = (int)round(microtime(true) - $start);
+            $this->logger->info(
+                'PS import done: imported=' . $this->stats['imported']
+                . ' updated=' . $this->stats['updated']
+                . ' skipped=' . $this->stats['skipped']
+                . ' images=' . $this->stats['images']
+                . ' ' . $duration . 's'
+            );
+
+            $this->writeProgress('Importas atliktas!', $this->progressTotal, $this->progressTotal, 'done');
+
+            $this->stats['duration'] = $duration;
+            return $this->stats;
+        } catch (Exception $e) {
+            $this->writeProgress('Klaida: ' . $e->getMessage(), $this->progressCurrent, $this->progressTotal, 'error');
+            throw $e;
         }
-        $this->stats['warnings'] = $warnings;
-
-        $mfResult   = $this->manufacturerMap->warmUp();
-        $attrResult = $this->attributeMap->warmUp();
-        $this->logger->info('ManufacturerMap: found=' . $mfResult['found'] . ' created=' . $mfResult['created']);
-        $this->logger->info('AttributeMap: group_id=' . $attrResult['group_id'] . ' found=' . $attrResult['found'] . ' created=' . $attrResult['created']);
-
-        foreach (array_merge(self::BIKE_SECTIONS, self::PARTS_SECTIONS) as $section) {
-            $this->importSection($section);
-        }
-
-        $this->syncImages();
-
-        $duration = (int)round(microtime(true) - $start);
-        $this->logger->info(
-            'PS import done: imported=' . $this->stats['imported']
-            . ' updated=' . $this->stats['updated']
-            . ' skipped=' . $this->stats['skipped']
-            . ' images=' . $this->stats['images']
-            . ' ' . $duration . 's'
-        );
-
-        $this->stats['duration'] = $duration;
-        return $this->stats;
     }
 
     // -------------------------------------------------------------------
@@ -197,10 +262,14 @@ class MyBikePsImport
             $groups = $this->groupByBrandModelColor($rows);
             foreach ($groups as $group) {
                 $this->processGroup($group);
+                $this->progressCurrent++;
+                $this->maybeWriteProgress($section . ': ' . $this->progressCurrent . ' / ' . $this->progressTotal);
             }
         } else {
             foreach ($rows as $row) {
                 $this->processRow($row);
+                $this->progressCurrent++;
+                $this->maybeWriteProgress($section . ': ' . $this->progressCurrent . ' / ' . $this->progressTotal);
             }
         }
     }

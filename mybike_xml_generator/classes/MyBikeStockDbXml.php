@@ -3,6 +3,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once dirname(__FILE__) . '/MyBikeCategoryManager.php';
+
 /**
  * Generates products_stock.xml from ps_mybike_product staging table.
  * One <product> per row: id, price, availability, ps_id_product.
@@ -35,14 +37,20 @@ class MyBikeStockDbXml
         $offset = 0;
         $limit  = 500;
 
+        $enabledIds = MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds();
+        $catFilter  = !empty($enabledIds)
+            ? ' AND `category_id` IN (' . implode(',', array_map('intval', $enabledIds)) . ')'
+            : '';
+
         do {
             $rows = Db::getInstance()->executeS(
                 "SELECT `mybike_id`, `standard_item_id`, `manufacturer_id`,
                         `price`, `base_price`, `avail_status`,
                         `avail_quantity`, `avail_date`, `ps_id_product`, `ps_id_product_attr`
                  FROM `" . _DB_PREFIX_ . "mybike_product`
-                 WHERE `avail_status` != 'deleted'
-                 ORDER BY `mybike_id`
+                 WHERE `avail_status` != 'deleted'"
+                . $catFilter .
+                " ORDER BY `mybike_id`
                  LIMIT " . $limit . " OFFSET " . $offset
             );
 

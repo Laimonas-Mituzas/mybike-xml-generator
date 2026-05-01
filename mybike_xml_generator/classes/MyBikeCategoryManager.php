@@ -91,6 +91,13 @@ class MyBikeCategoryManager
         );
     }
 
+    public static function getEnabledProductCount(): int
+    {
+        return (int)Db::getInstance()->getValue(
+            'SELECT SUM(`product_count`) FROM `' . _DB_PREFIX_ . self::TABLE . '` WHERE `enabled` = 1'
+        );
+    }
+
     // Įjungti visas kategorijas (naudojama po pirmo API fetch)
     public static function enableAll()
     {

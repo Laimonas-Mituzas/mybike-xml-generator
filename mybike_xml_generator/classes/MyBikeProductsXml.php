@@ -3,6 +3,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once dirname(__FILE__) . '/MyBikeCategoryManager.php';
+
 /**
  * Generates products_full.xml AND products_combinations.xml in one DB pass.
  *
@@ -52,12 +54,18 @@ class MyBikeProductsXml
         $fullCount = 0;
         $combCount = 0;
 
+        $enabledIds = MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds();
+        $catFilter  = !empty($enabledIds)
+            ? ' AND `category_id` IN (' . implode(',', array_map('intval', $enabledIds)) . ')'
+            : '';
+
         foreach (self::SECTIONS as $section) {
             $rows = Db::getInstance()->executeS(
                 "SELECT * FROM `" . _DB_PREFIX_ . "mybike_product`
                  WHERE `section` = '" . pSQL($section) . "'
-                   AND `avail_status` != 'deleted'
-                 ORDER BY `brand`, `model`, `color`, `mybike_id`"
+                   AND `avail_status` != 'deleted'"
+                . $catFilter .
+                " ORDER BY `brand`, `model`, `color`, `mybike_id`"
             );
 
             $isBikeSection = in_array($section, self::BIKE_SECTIONS, true);

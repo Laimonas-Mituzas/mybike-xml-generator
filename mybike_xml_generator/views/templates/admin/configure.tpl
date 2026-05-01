@@ -163,7 +163,8 @@
           {elseif $categories_enabled_cnt eq 0}
             Kategorijų filtras: visos prekės (nė viena nepasirinkta)
           {else}
-            Kategorijų filtras: <strong>{$categories_enabled_cnt}</strong> iš {$categories_total_cnt}
+            Kategorijų filtras: <strong>{$categories_enabled_cnt}</strong> iš {$categories_total_cnt} kategorijų
+            &nbsp;|&nbsp; iš viso prekių: <strong>{$categories_enabled_prods|intval}</strong>
           {/if}
         </div>
       </form>
@@ -318,9 +319,8 @@
             <td><input type="text" class="form-control input-xs" style="width:240px;font-size:11px"
                        value="{$cron_ps_import_url|escape:'html'}" readonly onclick="this.select()"></td>
             <td>
-              <form method="post" action="{$action_url}">
-                <button type="submit" name="run_ps_import" class="btn btn-primary btn-sm"
-                        onclick="return confirm('Paleisti PS importą? Gali užtrukti ilgai (iki 30 min 28k prekių).')">
+              <form method="post" action="{$action_url}" id="form-ps-import">
+                <button type="submit" name="run_ps_import" class="btn btn-primary btn-sm">
                   <i class="icon-play"></i>  Importuoti dabar
                 </button>
               </form>
@@ -707,16 +707,110 @@
   </div>{* /tab-content *}
 </div>
 
+{* ================================================================== *}
+{* IMPORTO PROGRESO MODALAS *}
+{* ================================================================== *}
+<div class="modal fade" id="mbk-import-modal" tabindex="-1" role="dialog"
+     data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog" style="max-width:480px" role="document">
+    <div class="modal-content">
+      <div class="modal-header" style="padding:12px 16px;border-bottom:1px solid #e5e5e5">
+        <h4 class="modal-title">
+          <i class="icon-refresh icon-spin"></i>&nbsp; PS Importas vykdomas...
+        </h4>
+      </div>
+      <div class="modal-body" style="padding:20px 20px 16px">
+        <div class="progress" style="margin-bottom:12px;height:22px;border-radius:4px">
+          <div id="mbk-import-bar"
+               class="progress-bar progress-bar-striped active"
+               role="progressbar"
+               style="width:2%;min-width:2%;height:22px;line-height:22px;transition:width 0.5s ease;font-size:12px">
+            0%
+          </div>
+        </div>
+        <p id="mbk-import-step"
+           class="text-muted"
+           style="font-size:12px;margin:0;min-height:18px;word-break:break-word"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+var mbkImportStatusUrl = '{$ajax_import_status_url|escape:"javascript"}';
+{literal}
 (function () {
-    var key = 'mbk_active_tab';
-    var saved = localStorage.getItem(key);
+    var pollTimer = null;
+
+    function updateBar(pct, step, status) {
+        var bar  = document.getElementById('mbk-import-bar');
+        var text = document.getElementById('mbk-import-step');
+        if (bar) {
+            var p = Math.max(2, pct || 0);
+            bar.style.width   = p + '%';
+            bar.textContent   = pct + '%';
+        }
+        if (text) {
+            text.textContent = step || '';
+        }
+        if (status === 'done' && bar) {
+            bar.classList.remove('active', 'progress-bar-striped', 'progress-bar-danger');
+            bar.classList.add('progress-bar-success');
+            bar.style.width  = '100%';
+            bar.textContent  = '100%';
+            var title = document.querySelector('#mbk-import-modal .modal-title');
+            if (title) { title.innerHTML = '<i class="icon-ok"></i>&nbsp; Importas atliktas!'; }
+        }
+        if (status === 'error' && bar) {
+            bar.classList.remove('active', 'progress-bar-success');
+            bar.classList.add('progress-bar-danger');
+            var title = document.querySelector('#mbk-import-modal .modal-title');
+            if (title) { title.innerHTML = '<i class="icon-remove"></i>&nbsp; Importo klaida'; }
+        }
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function startPolling() {
+        pollTimer = setInterval(function () {
+            fetch(mbkImportStatusUrl, { cache: 'no-store' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    updateBar(d.percent || 0, d.step || '', d.status);
+                    if (d.status === 'done' || d.status === 'error') {
+                        stopPolling();
+                    }
+                })
+                .catch(function () { /* ignore — page may be unloading */ });
+        }, 2000);
+    }
+
+    var form = document.getElementById('form-ps-import');
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            if (!confirm('Paleisti PS importą? Gali užtrukti ilgai (iki 30 min 28k prekių).')) {
+                e.preventDefault();
+                return;
+            }
+            $('#mbk-import-modal').modal('show');
+            updateBar(0, 'Jungiamasi...', 'running');
+            // Small delay so modal renders before first poll
+            setTimeout(startPolling, 1500);
+        });
+    }
+
+    // Tab persistence
+    var tabKey = 'mbk_active_tab';
+    var saved = localStorage.getItem(tabKey);
     if (saved) {
         var el = document.querySelector('#mbk-tabs a[href="' + saved + '"]');
         if (el) { $(el).tab('show'); }
     }
     $('#mbk-tabs a').on('shown.bs.tab', function (e) {
-        localStorage.setItem(key, e.target.getAttribute('href'));
+        localStorage.setItem(tabKey, e.target.getAttribute('href'));
     });
 }());
+{/literal}
 </script>
