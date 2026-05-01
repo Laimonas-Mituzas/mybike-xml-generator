@@ -330,19 +330,18 @@ class MyBikeProductsXml
             $xw->writeElement('COMBINATION_REFERENCE', (string)$v['manufacturer_id']);
             $xw->writeElement('ATTRIBUTE_NAMES',       'Size');
             $xw->writeElement('ATTRIBUTE_VALUES',      (string)$v['size']);
-            $xw->writeElement('SUPPLIER_REFERENCE',    (string)$v['manufacturer_id']);
-            $xw->writeElement('SUPPLIER_PRICE',        number_format((float)$v['base_price'], 6, '.', ''));
+            $xw->writeElement('SUPPLIER_REFERENCE', (string)$v['manufacturer_id']);
 
             $xw->startElement('IMAGES');
             $xw->writeCdata($firstImg);
             $xw->endElement();
 
-            $xw->writeElement('price',              (string)$v['price']);
-            $xw->writeElement('base_price',         (string)$v['base_price']);
-            $xw->writeElement('PRICE_TAX_EXCLUDED', (string)$v['price']);
-            $xw->writeElement('PRICE_TAX_INCLUDED', (string)$v['price']);
-            $xw->writeElement('IMPACT_ON_PRICE',    number_format($impact, 6, '.', ''));
-            $xw->writeElement('QUANTITY',           (string)$v['avail_quantity']);
+            $xw->writeElement('price',               (string)$v['price']);
+            $xw->writeElement('base_price',          (string)$v['base_price']);
+            $xw->writeElement('IMPACT_ON_PRICE',     number_format($impact, 6, '.', ''));
+            $xw->writeElement('availability_status', (string)$v['avail_status']);
+            $xw->writeElement('availability_date',   (string)($v['avail_date'] ?? ''));
+            $xw->writeElement('QUANTITY',            (string)$v['avail_quantity']);
             $xw->writeElement('MINIMAL_QUANTITY',   '1');
             $xw->writeElement('DEFAULT',            $i === 0 ? '1' : '0');
 
