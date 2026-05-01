@@ -5,12 +5,15 @@ if (!defined('_PS_VERSION_')) {
 
 /**
  * Generates products_full.xml from ps_mybike_product staging table.
- * One <product> per row, all fields.
+ * One <product> per unique brand+model+color group (representative row).
+ * Same dedup logic as MyBikeCombinationsXml: max qty wins, tie → min mybike_id.
  */
 class MyBikeFullDbXml
 {
     private $outputFile;
     private $logger;
+
+    const SECTIONS = ['Bikes', 'E-Bikes', 'Parts', 'Accessories'];
 
     public function __construct(string $outputFile, MyBikeLogger $logger)
     {
@@ -31,25 +34,21 @@ class MyBikeFullDbXml
         $xw->startElement('products');
         $xw->writeAttribute('generated', date('c'));
 
-        $total  = 0;
-        $offset = 0;
-        $limit  = 500;
+        $total = 0;
 
-        do {
+        foreach (self::SECTIONS as $section) {
             $rows = Db::getInstance()->executeS(
                 "SELECT * FROM `" . _DB_PREFIX_ . "mybike_product`
-                 WHERE `avail_status` != 'deleted'
-                 ORDER BY `mybike_id`
-                 LIMIT " . $limit . " OFFSET " . $offset
+                 WHERE `section` = '" . pSQL($section) . "'
+                   AND `avail_status` != 'deleted'
+                 ORDER BY `brand`, `model`, `color`, `mybike_id`"
             );
 
-            foreach ($rows as $row) {
-                $this->writeProduct($xw, $row);
+            foreach ($this->groupAndResolve($rows) as $rep) {
+                $this->writeProduct($xw, $rep);
                 $total++;
             }
-
-            $offset += $limit;
-        } while (count($rows) === $limit);
+        }
 
         $xw->endElement();
         $xw->flush();
@@ -61,6 +60,66 @@ class MyBikeFullDbXml
         $this->logger->info('Full XML done: ' . $total . ' products, ' . $duration . 's');
 
         return $total;
+    }
+
+    // -----------------------------------------------------------------------
+
+    private function groupAndResolve(array $rows): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $key = $row['brand'] . '|' . $row['model'] . '|' . $row['color'];
+            $groups[$key][] = $row;
+        }
+
+        $reps = [];
+        foreach ($groups as $group) {
+            $reps[] = $this->resolveRepresentative($group);
+        }
+        return $reps;
+    }
+
+    private function resolveRepresentative(array $rows): array
+    {
+        $sizeMap    = [];
+        $noSizeRows = [];
+
+        foreach ($rows as $row) {
+            $size = (string)$row['size'];
+            if ($size === '') {
+                $noSizeRows[] = $row;
+            } elseif (!isset($sizeMap[$size])) {
+                $sizeMap[$size] = $row;
+            } else {
+                $existing = $sizeMap[$size];
+                if ((int)$row['avail_quantity'] > (int)$existing['avail_quantity']
+                    || ((int)$row['avail_quantity'] === (int)$existing['avail_quantity']
+                        && (int)$row['mybike_id'] < (int)$existing['mybike_id'])
+                ) {
+                    $sizeMap[$size] = $row;
+                }
+            }
+        }
+
+        if (empty($sizeMap)) {
+            if (empty($noSizeRows)) {
+                return $rows[0];
+            }
+            $rep = $noSizeRows[0];
+            foreach ($noSizeRows as $r) {
+                if ((int)$r['avail_quantity'] > (int)$rep['avail_quantity']
+                    || ((int)$r['avail_quantity'] === (int)$rep['avail_quantity']
+                        && (int)$r['mybike_id'] < (int)$rep['mybike_id'])
+                ) {
+                    $rep = $r;
+                }
+            }
+            return $rep;
+        }
+
+        $sizes = array_keys($sizeMap);
+        usort($sizes, 'strnatcasecmp');
+        return $sizeMap[$sizes[0]];
     }
 
     private function writeProduct(XMLWriter $xw, array $row): void
@@ -80,7 +139,6 @@ class MyBikeFullDbXml
         $xw->writeElement('price',            (string)$row['price']);
         $xw->writeElement('base_price',       (string)$row['base_price']);
         $xw->writeElement('color',            (string)$row['color']);
-        $xw->writeElement('size',             (string)$row['size']);
         $xw->writeElement('featured',         (string)$row['featured']);
 
         $xw->startElement('description');
