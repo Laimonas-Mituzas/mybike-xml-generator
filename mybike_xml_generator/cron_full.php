@@ -38,13 +38,19 @@ try {
 
     mybike_set_config('MYBIKE_LAST_FULL_RUN',      date('Y-m-d H:i:s'));
     mybike_set_config('MYBIKE_LAST_FULL_COUNT',    (string)$result['full']);
-    mybike_set_config('MYBIKE_LAST_FULL_DURATION', (string)$duration);
+    mybike_set_config('MYBIKE_LAST_FULL_DURATION', (string)$result['duration']);
     mybike_set_config('MYBIKE_LAST_FULL_STATUS',   'ok');
 
-    echo 'OK: full=' . $result['full'] . ' ' . $duration . 's';
+    mybike_set_config('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+    mybike_set_config('MYBIKE_LAST_COMB_COUNT',    (string)$result['combinations']);
+    mybike_set_config('MYBIKE_LAST_COMB_DURATION', (string)$result['duration']);
+    mybike_set_config('MYBIKE_LAST_COMB_STATUS',   'ok');
+
+    echo 'OK: full=' . $result['full'] . ' combinations=' . $result['combinations'] . ' ' . $result['duration'] . 's';
 } catch (Exception $e) {
     $logger->error($e->getMessage());
     mybike_set_config('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
+    mybike_set_config('MYBIKE_LAST_COMB_STATUS', 'error: ' . $e->getMessage());
     http_response_code(500);
     echo 'ERROR: ' . $e->getMessage();
 }

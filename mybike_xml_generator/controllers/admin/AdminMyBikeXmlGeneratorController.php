@@ -168,10 +168,17 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->setConfig('MYBIKE_LAST_FULL_DURATION', (string)$dur);
             $this->setConfig('MYBIKE_LAST_FULL_STATUS',   'ok');
 
-            $_SESSION['mybike_success'] = 'Full XML sugeneruotas: ' . $result['full'] . ' prekių, ' . $dur . 's';
+            $this->setConfig('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_COMB_COUNT',    (string)$result['combinations']);
+            $this->setConfig('MYBIKE_LAST_COMB_DURATION', (string)$dur);
+            $this->setConfig('MYBIKE_LAST_COMB_STATUS',   'ok');
+
+            $_SESSION['mybike_success'] = 'XML sugeneruoti: full=' . $result['full']
+                . ' combinations=' . $result['combinations'] . ', ' . $dur . 's';
         } catch (Exception $e) {
             $logger->error($e->getMessage());
             $this->setConfig('MYBIKE_LAST_FULL_STATUS', 'error: ' . $e->getMessage());
+            $this->setConfig('MYBIKE_LAST_COMB_STATUS', 'error: ' . $e->getMessage());
             $_SESSION['mybike_error'] = $e->getMessage();
         }
         Tools::redirectAdmin($this->context->link->getAdminLink('AdminMyBikeXmlGenerator'));
@@ -384,16 +391,6 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             if (!empty($result['warnings'])) {
                 $msg .= ' | Įspėjimai: ' . implode('; ', $result['warnings']);
             }
-
-            // Regenerate combinations XML — ps_id_product now filled in staging
-            $xmlLogger  = new MyBikeLogger(MYBIKE_XML_LOG);
-            $combXml    = new MyBikeProductsXml(MYBIKE_FULL_XML, MYBIKE_COMBINATIONS_XML, $xmlLogger);
-            $combResult = $combXml->buildCombinationsOnly();
-            $this->setConfig('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
-            $this->setConfig('MYBIKE_LAST_COMB_COUNT',    (string)$combResult['combinations']);
-            $this->setConfig('MYBIKE_LAST_COMB_DURATION', (string)$combResult['duration']);
-            $this->setConfig('MYBIKE_LAST_COMB_STATUS',   'ok');
-            $msg .= ' | Deriniai XML: ' . $combResult['combinations'] . ' eilučių';
 
             $_SESSION['mybike_success'] = $msg;
         } catch (Exception $e) {

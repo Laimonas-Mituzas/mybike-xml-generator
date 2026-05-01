@@ -32,9 +32,10 @@ class MyBikeProductsXml
     public function build(): array
     {
         $start = microtime(true);
-        $this->logger->info('Products full XML build started');
+        $this->logger->info('Products XML build started (full + combinations)');
 
         $tmpFull = $this->fullFile . '.tmp';
+        $tmpComb = $this->combinationsFile . '.tmp';
 
         $xwFull = new XMLWriter();
         $xwFull->openURI($tmpFull);
@@ -43,8 +44,16 @@ class MyBikeProductsXml
         $xwFull->startElement('products');
         $xwFull->writeAttribute('generated', date('c'));
 
+        $xwComb = new XMLWriter();
+        $xwComb->openURI($tmpComb);
+        $xwComb->startDocument('1.0', 'UTF-8');
+        $xwComb->setIndent(false);
+        $xwComb->startElement('COMBINATIONS');
+        $xwComb->writeAttribute('generated', date('c'));
+
         $vocab     = MyBikeSpecsVocab::loadAll();
         $fullCount = 0;
+        $combCount = 0;
 
         $enabledIds = MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds();
         $catFilter  = !empty($enabledIds)
@@ -60,9 +69,20 @@ class MyBikeProductsXml
                 " ORDER BY `brand`, `model`, `color`, `mybike_id`"
             );
 
+            $isBikeSection = in_array($section, self::BIKE_SECTIONS, true);
+
             foreach ($this->groupByBrandModelColor($rows) as $group) {
-                $this->writeFullProduct($xwFull, $this->resolveGroup($group)['representative'], $vocab);
+                $resolved = $this->resolveGroup($group);
+                $rep      = $resolved['representative'];
+                $variants = $resolved['variants'];
+
+                $this->writeFullProduct($xwFull, $rep, $vocab);
                 $fullCount++;
+
+                if ($isBikeSection && $resolved['type'] === 'combinations') {
+                    $this->writeCombination($xwComb, $rep, $variants);
+                    $combCount += count($variants);
+                }
             }
         }
 
@@ -70,62 +90,17 @@ class MyBikeProductsXml
         $xwFull->flush();
         unset($xwFull);
 
-        rename($tmpFull, $this->fullFile);
-
-        $duration = (int)round(microtime(true) - $start);
-        $this->logger->info("Products full XML done: full={$fullCount}, {$duration}s");
-
-        return ['full' => $fullCount, 'duration' => $duration];
-    }
-
-    public function buildCombinationsOnly(): array
-    {
-        $start = microtime(true);
-        $this->logger->info('Combinations XML rebuild started');
-
-        $tmpComb = $this->combinationsFile . '.tmp';
-
-        $xwComb = new XMLWriter();
-        $xwComb->openURI($tmpComb);
-        $xwComb->startDocument('1.0', 'UTF-8');
-        $xwComb->setIndent(false);
-        $xwComb->startElement('COMBINATIONS');
-        $xwComb->writeAttribute('generated', date('c'));
-
-        $combCount  = 0;
-        $enabledIds = MyBikeCategoryManager::isEmpty() ? [] : MyBikeCategoryManager::getEnabledIds();
-        $catFilter  = !empty($enabledIds)
-            ? ' AND `category_id` IN (' . implode(',', array_map('intval', $enabledIds)) . ')'
-            : '';
-
-        foreach (self::BIKE_SECTIONS as $section) {
-            $rows = Db::getInstance()->executeS(
-                "SELECT * FROM `" . _DB_PREFIX_ . "mybike_product`
-                 WHERE `section` = '" . pSQL($section) . "'
-                   AND `avail_status` != 'deleted'"
-                . $catFilter .
-                " ORDER BY `brand`, `model`, `color`, `mybike_id`"
-            );
-
-            foreach ($this->groupByBrandModelColor($rows) as $group) {
-                $resolved = $this->resolveGroup($group);
-                if ($resolved['type'] === 'combinations') {
-                    $this->writeCombination($xwComb, $resolved['representative'], $resolved['variants']);
-                    $combCount += count($resolved['variants']);
-                }
-            }
-        }
-
         $xwComb->endElement();
         $xwComb->flush();
         unset($xwComb);
 
+        rename($tmpFull, $this->fullFile);
         rename($tmpComb, $this->combinationsFile);
 
         $duration = (int)round(microtime(true) - $start);
-        $this->logger->info("Combinations XML rebuild done: count={$combCount}, {$duration}s");
+        $this->logger->info("Products XML done: full={$fullCount}, combinations={$combCount}, {$duration}s");
 
-        return ['combinations' => $combCount, 'duration' => $duration];
+        return ['full' => $fullCount, 'combinations' => $combCount, 'duration' => $duration];
     }
 
     // -----------------------------------------------------------------------
@@ -347,7 +322,7 @@ class MyBikeProductsXml
 
             $xw->startElement('COMBINATION');
 
-            $xw->writeElement('PRODUCT_ID',            (string)($v['ps_id_product'] ?? ''));
+            $xw->writeElement('PRODUCT_ID',            (string)$v['mybike_id']);
             $xw->writeElement('standard_item_id',      (string)$v['standard_item_id']);
             $xw->writeElement('manufacturer_id',       (string)$v['manufacturer_id']);
             $xw->writeElement('PRODUCT_REFERENCE',     (string)$rep['manufacturer_id']);

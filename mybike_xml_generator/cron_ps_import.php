@@ -16,7 +16,6 @@ require_once dirname(__FILE__) . '/classes/MyBikePriceCalc.php';
 require_once dirname(__FILE__) . '/classes/MyBikeManufacturerMap.php';
 require_once dirname(__FILE__) . '/classes/MyBikeAttributeMap.php';
 require_once dirname(__FILE__) . '/classes/MyBikePsImport.php';
-require_once dirname(__FILE__) . '/classes/MyBikeProductsXml.php';
 
 $token      = isset($_GET['token']) ? $_GET['token'] : '';
 $savedToken = Configuration::get('MYBIKE_CRON_TOKEN');
