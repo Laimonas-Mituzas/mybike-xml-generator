@@ -391,6 +391,17 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             if (!empty($result['warnings'])) {
                 $msg .= ' | Įspėjimai: ' . implode('; ', $result['warnings']);
             }
+
+            // Regenerate combinations XML — ps_id_product now filled in staging
+            $xmlLogger  = new MyBikeLogger(MYBIKE_XML_LOG);
+            $combXml    = new MyBikeProductsXml(MYBIKE_FULL_XML, MYBIKE_COMBINATIONS_XML, $xmlLogger);
+            $combResult = $combXml->buildCombinationsOnly();
+            $this->setConfig('MYBIKE_LAST_COMB_RUN',      date('Y-m-d H:i:s'));
+            $this->setConfig('MYBIKE_LAST_COMB_COUNT',    (string)$combResult['combinations']);
+            $this->setConfig('MYBIKE_LAST_COMB_DURATION', (string)$combResult['duration']);
+            $this->setConfig('MYBIKE_LAST_COMB_STATUS',   'ok');
+            $msg .= ' | Deriniai XML: ' . $combResult['combinations'] . ' eilučių';
+
             $_SESSION['mybike_success'] = $msg;
         } catch (Exception $e) {
             $logger->error($e->getMessage());
