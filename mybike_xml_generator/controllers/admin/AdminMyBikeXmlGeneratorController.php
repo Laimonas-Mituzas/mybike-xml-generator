@@ -37,6 +37,8 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
             $this->saveCategories();
         } elseif (Tools::isSubmit('save_import_config')) {
             $this->saveImportConfig();
+        } elseif (Tools::isSubmit('reset_import_config')) {
+            $this->resetImportConfig();
         } elseif (Tools::isSubmit('refresh_category_map')) {
             $this->refreshCategoryMap();
         } elseif (Tools::isSubmit('save_category_map')) {
@@ -253,6 +255,16 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
         Configuration::updateValue('MYBIKE_IMPORT_TAX_RULES_ID',  (string)$taxRulesId);
 
         $this->confirmations[] = $this->l('Importo konfigūracija išsaugota.');
+    }
+
+    private function resetImportConfig()
+    {
+        Configuration::updateValue('MYBIKE_PRICE_KEY',           'price');
+        Configuration::updateValue('MYBIKE_PRICE_COEFFICIENT',   '1.0000');
+        Configuration::updateValue('MYBIKE_PRICE_WITH_VAT',      '0');
+        Configuration::updateValue('MYBIKE_IMPORT_TAX_RULES_ID', '0');
+
+        $this->confirmations[] = $this->l('Kainodara nustatyta į numatytuosius.');
     }
 
     private function refreshCategoryMap()

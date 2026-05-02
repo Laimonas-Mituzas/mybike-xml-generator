@@ -49,7 +49,7 @@
               <span style="position:absolute;inset:0;background:{if $only_in_stock}#25b9d7{else}#ccc{/if};border-radius:22px;transition:.2s"></span>
               <span style="position:absolute;left:{if $only_in_stock}20px{else}2px{/if};top:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s"></span>
             </span>
-            <span>Rodyti tik prekes su atsargomis (<code>in_stock=1</code>)</span>
+            <span>Įkelti tik tas prekes, kurios yra sandėlyje (<code>in_stock=1</code>)</span>
           </label>
           <p class="help-block" style="margin:4px 0 0 50px">Taikoma API sync užklausoms. Išjungus — sinchronizuojamos visos prekės.</p>
         </div>
@@ -90,14 +90,18 @@
               {/foreach}
             </select>
           </div>
-          <div style="margin:0">
+          <div style="margin:0;display:flex;gap:8px">
             <button type="submit" name="save_import_config" class="btn btn-success">
               <i class="icon-save"></i> Išsaugoti
+            </button>
+            <button type="submit" name="reset_import_config" class="btn btn-default"
+                    onclick="return confirm('Nustatyti kainodarą į numatytuosius?')">
+              <i class="icon-undo"></i> Reset
             </button>
           </div>
         </div>
         <p class="help-block" style="margin-top:8px">
-          PS kaina = kainos_laukas × koeficientas {ldelim}÷ (1 + PVM%) jei su PVM{rdelim}.
+          Galutinė improtuotos prekės kaina = kainos_laukas × koeficientas {ldelim}÷ (1 + PVM%) jei su PVM{rdelim}.
           <code>wholesale_price</code> = kitas kainos laukas, be koeficiento.
         </p>
       </form>
