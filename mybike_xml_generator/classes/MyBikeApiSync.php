@@ -160,9 +160,11 @@ class MyBikeApiSync
         return $products;
     }
 
+    // Returns map of id => true only for rows that already have detail fields fetched.
+    // Rows inserted by stock sync have images=NULL — those need detail fetch in runFull.
     private function loadExistingIds(): array
     {
-        $stmt = $this->pdo->query('SELECT `mybike_id` FROM ' . $this->table);
+        $stmt = $this->pdo->query('SELECT `mybike_id` FROM ' . $this->table . ' WHERE `images` IS NOT NULL');
         $ids  = [];
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
             $ids[(int)$id] = true;
