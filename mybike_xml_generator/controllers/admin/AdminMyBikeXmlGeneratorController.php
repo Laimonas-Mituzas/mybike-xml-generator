@@ -525,42 +525,50 @@ class AdminMyBikeXmlGeneratorController extends ModuleAdminController
     private function lastApiSyncData(): array
     {
         return [
-            'run'      => Configuration::get('MYBIKE_LAST_API_SYNC_RUN')      ?: '—',
+            'run'      => $this->getConfigDirect('MYBIKE_LAST_API_SYNC_RUN')      ?: '—',
             'count'    => (int)Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'mybike_product`'),
-            'duration' => Configuration::get('MYBIKE_LAST_API_SYNC_DURATION') ?: '—',
-            'status'   => Configuration::get('MYBIKE_LAST_API_SYNC_STATUS')   ?: '—',
+            'duration' => $this->getConfigDirect('MYBIKE_LAST_API_SYNC_DURATION') ?: '—',
+            'status'   => $this->getConfigDirect('MYBIKE_LAST_API_SYNC_STATUS')   ?: '—',
         ];
     }
 
     private function lastImportData(): array
     {
         return [
-            'run'      => Configuration::get('MYBIKE_LAST_IMPORT_RUN')      ?: '—',
-            'imported' => Configuration::get('MYBIKE_LAST_IMPORT_IMPORTED') ?: '—',
-            'updated'  => Configuration::get('MYBIKE_LAST_IMPORT_UPDATED')  ?: '—',
-            'skipped'  => Configuration::get('MYBIKE_LAST_IMPORT_SKIPPED')  ?: '—',
-            'duration' => Configuration::get('MYBIKE_LAST_IMPORT_DURATION') ?: '—',
-            'status'   => Configuration::get('MYBIKE_LAST_IMPORT_STATUS')   ?: '—',
+            'run'      => $this->getConfigDirect('MYBIKE_LAST_IMPORT_RUN')      ?: '—',
+            'imported' => $this->getConfigDirect('MYBIKE_LAST_IMPORT_IMPORTED') ?: '—',
+            'updated'  => $this->getConfigDirect('MYBIKE_LAST_IMPORT_UPDATED')  ?: '—',
+            'skipped'  => $this->getConfigDirect('MYBIKE_LAST_IMPORT_SKIPPED')  ?: '—',
+            'duration' => $this->getConfigDirect('MYBIKE_LAST_IMPORT_DURATION') ?: '—',
+            'status'   => $this->getConfigDirect('MYBIKE_LAST_IMPORT_STATUS')   ?: '—',
         ];
     }
 
     private function lastTestImportData(): array
     {
         return [
-            'run'    => Configuration::get('MYBIKE_LAST_TEST_RUN')    ?: '',
-            'status' => Configuration::get('MYBIKE_LAST_TEST_STATUS') ?: '',
-            'detail' => Configuration::get('MYBIKE_LAST_TEST_DETAIL') ?: '',
+            'run'    => $this->getConfigDirect('MYBIKE_LAST_TEST_RUN')    ?: '',
+            'status' => $this->getConfigDirect('MYBIKE_LAST_TEST_STATUS') ?: '',
+            'detail' => $this->getConfigDirect('MYBIKE_LAST_TEST_DETAIL') ?: '',
         ];
     }
 
     private function lastRunData($type): array
     {
         return [
-            'run'      => Configuration::get('MYBIKE_LAST_' . $type . '_RUN')      ?: '—',
-            'count'    => Configuration::get('MYBIKE_LAST_' . $type . '_COUNT')    ?: '—',
-            'duration' => Configuration::get('MYBIKE_LAST_' . $type . '_DURATION') ?: '—',
-            'status'   => Configuration::get('MYBIKE_LAST_' . $type . '_STATUS')   ?: '—',
+            'run'      => $this->getConfigDirect('MYBIKE_LAST_' . $type . '_RUN')      ?: '—',
+            'count'    => $this->getConfigDirect('MYBIKE_LAST_' . $type . '_COUNT')    ?: '—',
+            'duration' => $this->getConfigDirect('MYBIKE_LAST_' . $type . '_DURATION') ?: '—',
+            'status'   => $this->getConfigDirect('MYBIKE_LAST_' . $type . '_STATUS')   ?: '—',
         ];
+    }
+
+    private function getConfigDirect(string $name): string
+    {
+        $val = Db::getInstance()->getValue(
+            'SELECT `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($name) . '\''
+        );
+        return $val !== false ? (string)$val : '';
     }
 
     private function saveVocab()
